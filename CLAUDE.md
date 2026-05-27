@@ -1,127 +1,87 @@
 # Rennyaysance
 
-A Gleam full-stack web app. Party/event platform with planned features: login, riddles, costume voting, scavenger hunt, tournament leaderboard.
-
-**Note**: The current code is the Lustre full-stack tutorial example (a grocery list app). Anything involving groceries (`shared/groceries.gleam`, grocery routes, `GroceryItem`, etc.) is tutorial scaffolding that will be replaced.
+Gleam full-stack party/event platform. Planned: login, riddles, costume voting, scavenger hunt, jousting bracket, tournament leaderboard.
 
 ## Stack
 
-- **Frontend**: Lustre 5.x (MVU with effects, JavaScript target) — `frontend/`
-- **Backend**: Wisp 2.x over Mist 6.x (Erlang target) — `backend/`
-- **Shared**: `shared/` package for types and JSON codecs used by both sides
-- **Storage**: Storail 3.x (file-based JSON, `./data/`) — tutorial placeholder, not for production
+- **Frontend**: Lustre 5.x (MVU + effects, JS target) — `frontend/`
+- **Backend**: Wisp 2.x + Mist 6.x (Erlang target) — `backend/`
+- **Storage**: Storail 3.x (file-based JSON, `backend/data/`)
 - **Dev env**: devenv (Nix)
-
-Reference: https://hexdocs.pm/lustre/guide/06-full-stack-applications.html
 
 ## Project structure
 
 ```
 rennyaysance/
-  Makefile               — manual build targets
+  Makefile
   backend/
     gleam.toml           — deps: mist, wisp, wisp_mist, storail, lustre, gleam_json, gleam_http, gleam_erlang, gleam_otp, gleam_stdlib
-    src/backend.gleam    — Wisp+Mist server on :3000, SSR HTML, storail DB
-    data/                — storail JSON storage (gitignored)
+    src/backend.gleam    — server, routing, login handler, user storage
+    data/                — storail JSON (gitignored)
     priv/static/
-      index.html         — minimal fallback shell (HTML is primarily rendered server-side)
-      frontend.js        — compiled frontend bundle (generated, not committed)
+      frontend.js        — compiled frontend bundle (generated)
   frontend/
-    gleam.toml           — target = "javascript", deps: lustre, rsvp, plinth, gleam_json, gleam_http, gleam_stdlib
-    src/frontend.gleam   — Lustre MVU app with effects, hydration from SSR
+    gleam.toml           — target=javascript, deps: lustre, modem, rsvp, plinth, gleam_json, gleam_http, gleam_stdlib
+    src/
+      frontend.gleam     — main, Model, Msg, init, update, view (auth gate)
+      router.gleam       — Route type, parse_route, href
+      layout.gleam       — page() wrapper, nav_link() (generic over msg)
+      local_storage.gleam — get/set/remove via plinth/javascript/storage
+      page/              — one file per page, each exports view() -> Element(msg)
   shared/
-    gleam.toml           — deps: gleam_json, gleam_stdlib
-    src/shared/          — shared types and JSON codecs (currently: groceries.gleam — tutorial)
+    src/shared/groceries.gleam  — dead code (tutorial remnant, not imported anywhere)
 ```
 
 ## Dev workflow
 
 ```sh
-devenv up
+devenv up           # starts backend (:3000) + frontend watcher concurrently
+make build-frontend # cd frontend && gleam run -m lustre/dev build --outdir=../backend/priv/static
+make build-backend  # gleam build in backend
+make dev            # build-frontend then gleam run in backend
+make clean
 ```
 
-Starts two processes concurrently:
-- `backend` — `cd backend && gleam run` (Wisp/Mist on :3000)
-- `frontend` — builds JS bundle on startup and re-runs on any `frontend/src/**/*.gleam` change
+## Backend
 
-The frontend process runs:
-```sh
-cd frontend && gleam run -m lustre/dev build --outdir=../backend/priv/static
-```
+Wisp over Mist. `wisp.priv_directory("backend")` resolves static dir — no CWD dependency.
 
-Output bundle is `frontend.js` (not `app.js`).
+Routes:
+- `POST /api/login` → check password, upsert user in storail, return `{name}`
+- `GET *` → `serve_index()`: SSR minimal HTML shell via lustre element, mounts `#app`
+- else → `wisp.not_found()`
 
-Manual targets:
-```sh
-make build-frontend   # one-shot JS build
-make build-backend    # gleam build for backend
-make build            # both
-make dev              # build-frontend then gleam run in backend
-make clean            # remove built artifacts
-```
+Auth: hardcoded `const party_password = "renaissance"` at top of `backend.gleam`. Wrong password → `wisp.response(401)`. User list stored as `List(String)` in storail collection `"users"`.
 
-## Backend (Wisp 2.x + Mist 6.x)
+Key wisp functions: `wisp.json_response(body, status)`, `wisp.html_response(body, status)`, `wisp.response(status)`, `wisp.bad_request(detail)`.
 
-Uses Wisp as the HTTP framework layered over Mist. Entry point:
-```gleam
-handle_request(db, static_directory, _)
-|> wisp_mist.handler(secret_key_base)
-|> mist.new
-|> mist.port(3000)
-|> mist.start
-```
+## Frontend
 
-Middleware stack in `app_middleware`:
-- `wisp.method_override` — supports PUT/DELETE via form POST
-- `wisp.log_request`
-- `wisp.rescue_crashes`
-- `wisp.handle_head`
-- `wisp.serve_static(req, under: "/static", from: static_directory)` — serves `priv/static/`
+Routing via `modem` — intercepts link clicks + back/forward. All routes defined in `router.gleam` as a `Route` custom type. `parse_route(Uri) -> Route` and `href(Route) -> Attribute(msg)`.
 
-Routing in `handle_request`:
-- `POST /api/groceries` — JSON body, decode, save to storail
-- `GET *` — server-side renders full HTML with hydration data
-- anything else → `wisp.not_found()`
+Auth gate in `view`: if `model.user == None`, renders `login.view(...)` regardless of route. If logged in, renders `view_page(route)` wrapped with a logout button.
 
-SSR: the backend renders the full HTML document using lustre's `element.to_document_string`, injecting initial state as a JSON script tag:
-```gleam
-html.script(
-  [attribute.type_("application/json"), attribute.id("model")],
-  json.to_string(...)
-)
-```
+Session persistence: `local_storage.get/set/remove` wraps `plinth/javascript/storage`. Key: `"rennyaysance:user"`. Read in `init`, written on successful login, cleared on logout.
 
-Static files resolved via `wisp.priv_directory("backend")` — no CWD dependency.
+Login API call uses `rsvp.post` + `rsvp.expect_json(decoder, ServerRespondedToLogin)`. Response msg is `Result(String, rsvp.Error(String))`.
 
-## Frontend (Lustre 5.x)
+Page files in `page/` each export `pub fn view() -> Element(msg)` (generic over msg — no page-level messages yet). `login.gleam` takes callbacks: `view(name, password, error, loading, on_name_input, on_password_input, on_submit)`.
 
-Uses `lustre.application` (not `lustre.simple`) to support effects.
-
-Hydration: reads initial state from the server-injected `<script id="model">` tag on startup:
-```gleam
-document.query_selector("#model")
-|> result.map(plinth_element.inner_text)
-|> result.try(fn(json) { json.parse(json, decoder()) ... })
-```
-
-Key deps:
-- `rsvp` — HTTP requests from the frontend (e.g. `rsvp.post`)
-- `plinth` — browser DOM access (`plinth/browser/document`, `plinth/browser/element`)
-
-MVU: `lustre.application(init, update, view)` → `lustre.start(app, "#app", initial_data)`.
-
-## Shared package
-
-`shared/` is a plain Gleam package (no JS/Erlang target set) depended on by both frontend and backend via `{ path = "../shared" }`.
-
-Currently contains only `shared/groceries.gleam` (tutorial code — will be replaced). This is the right place for domain types and JSON codecs shared across the stack.
+`layout.page(title, body)` renders a `<nav>` with a Home link + `<h1>` + body. `layout.nav_link(route, label)` produces an `<a>` using `router.href`.
 
 ## Styling
 
-No CSS framework currently active. `backend/priv/static/index.html` is a minimal shell; styles are applied inline in the Lustre view functions for now.
+CSS lives in `backend/priv/static/app.css`. Loaded via `serve_index()` in `backend.gleam` alongside Open Props and Google Fonts.
 
-Open Props was used in an earlier iteration and may be re-added:
-```html
-<link rel="stylesheet" href="https://unpkg.com/open-props" />
-<link rel="stylesheet" href="https://unpkg.com/open-props/normalize.min.css" />
-```
+**External dependencies (linked in `serve_index()` head):**
+- Open Props CDN: `https://unpkg.com/open-props/open-props.min.css` — size/spacing/radius/transition tokens
+- Google Fonts: Jacquard 24 (`--font-display`) — used on headings
+
+**Structure:** ITCSS-inspired `@layer` cascade:
+- `settings` — raw palette (`--scarlet-*`, `--gold-*`, `--parchment-*`) + semantic aliases (`--color-bg`, `--color-text`, `--color-primary`, `--color-accent`, `--color-border`). Dark mode via `@media (prefers-color-scheme: dark)`.
+- `generic` — box-sizing reset, margin zero, font inherit on form elements
+- `elements` — defaults for `body`, `h1–h3`, `a`, `button`, `input`
+- `components` — scoped UI classes (`.nav`, `.login-form`, etc.) — add here as pages are built
+- `utilities` — `.sr-only`, `.flex`, `.stack`, `.cluster`
+
+**Color theme:** Gryffindor (scarlet + gold + parchment). Light mode: parchment-cream bg. Dark mode: near-black warm bg.

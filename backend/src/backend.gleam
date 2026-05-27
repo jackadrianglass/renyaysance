@@ -76,6 +76,29 @@ fn serve_index() -> Response {
           attribute.attribute("content", "width=device-width, initial-scale=1"),
         ]),
         html.title([], "Rennyaysance"),
+        html.link([
+          attribute.attribute("rel", "preconnect"),
+          attribute.href("https://fonts.googleapis.com"),
+        ]),
+        html.link([
+          attribute.attribute("rel", "preconnect"),
+          attribute.href("https://fonts.gstatic.com"),
+          attribute.attribute("crossorigin", ""),
+        ]),
+        html.link([
+          attribute.attribute("rel", "stylesheet"),
+          attribute.href(
+            "https://fonts.googleapis.com/css2?family=Jacquard+24&display=swap",
+          ),
+        ]),
+        html.link([
+          attribute.attribute("rel", "stylesheet"),
+          attribute.href("https://unpkg.com/open-props/open-props.min.css"),
+        ]),
+        html.link([
+          attribute.attribute("rel", "stylesheet"),
+          attribute.href("/static/app.css"),
+        ]),
         html.script(
           [attribute.type_("module"), attribute.src("/static/frontend.js")],
           "",

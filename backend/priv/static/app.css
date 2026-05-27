@@ -1,42 +1,189 @@
-.app {
-  max-width: var(--size-content-2);
-  margin-inline: auto;
-  padding: var(--size-fluid-3);
+@layer settings, generic, elements, components, utilities;
+
+/* ============================================================
+   SETTINGS — design tokens
+   ============================================================ */
+
+@layer settings {
+  :root {
+    /* Raw palette — Scarlet */
+    --scarlet-1: #2a0000;
+    --scarlet-2: #500002;
+    --scarlet-3: #740001;
+    --scarlet-4: #ae0001;
+    --scarlet-5: #d3001a;
+    --scarlet-6: #ff2020;
+
+    /* Raw palette — Gold */
+    --gold-1: #3d2e00;
+    --gold-2: #6b5100;
+    --gold-3: #9e7800;
+    --gold-4: #d4af37;
+    --gold-5: #eeba30;
+    --gold-6: #ffe168;
+
+    /* Raw palette — Parchment */
+    --parchment-1: #1a1008;
+    --parchment-2: #2e1f0f;
+    --parchment-3: #5c3d1e;
+    --parchment-4: #8b6344;
+    --parchment-5: #c49a6c;
+    --parchment-6: #f5e6c8;
+
+    /* Semantic tokens — light mode */
+    --color-bg: var(--parchment-6);
+    --color-bg-surface: #fff8ee;
+    --color-text: var(--parchment-1);
+    --color-text-muted: var(--parchment-3);
+    --color-primary: var(--scarlet-4);
+    --color-primary-hover: var(--scarlet-3);
+    --color-accent: var(--gold-4);
+    --color-accent-hover: var(--gold-3);
+    --color-border: var(--parchment-4);
+
+    /* Typography */
+    --font-display: "Jacquard 24", serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: var(--parchment-1);
+      --color-bg-surface: var(--parchment-2);
+      --color-text: var(--parchment-6);
+      --color-text-muted: var(--parchment-5);
+      --color-primary: var(--scarlet-5);
+      --color-primary-hover: var(--scarlet-4);
+      --color-accent: var(--gold-5);
+      --color-accent-hover: var(--gold-4);
+      --color-border: var(--parchment-3);
+    }
+  }
 }
 
-.app h1 {
-  font-size: var(--font-size-fluid-3);
-  font-weight: var(--font-weight-9);
-  color: var(--indigo-6);
-  text-align: center;
+/* ============================================================
+   GENERIC — resets & normalization
+   ============================================================ */
+
+@layer generic {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 }
 
-.counter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--size-3);
-  margin-block-start: var(--size-5);
+/* ============================================================
+   ELEMENTS — bare HTML element defaults
+   ============================================================ */
+
+@layer elements {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    line-height: var(--font-lineheight-3);
+    min-block-size: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    color: var(--color-accent);
+    line-height: var(--font-lineheight-1);
+    letter-spacing: var(--font-letterspacing-3);
+  }
+
+  a {
+    color: var(--color-primary);
+    text-underline-offset: 3px;
+  }
+
+  a:hover {
+    color: var(--color-primary-hover);
+  }
+
+  button {
+    cursor: pointer;
+    background-color: var(--color-primary);
+    color: var(--parchment-6);
+    border: none;
+    border-radius: var(--radius-2);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-4);
+    font-weight: var(--font-weight-6);
+    transition: background-color var(--transition-fast-2);
+  }
+
+  button:hover {
+    background-color: var(--color-primary-hover);
+  }
+
+  input {
+    background-color: var(--color-bg-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-3);
+    width: 100%;
+  }
+
+  input:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
 }
 
-.counter button {
-  background: var(--indigo-6);
-  color: white;
-  border: none;
-  padding: var(--size-2) var(--size-4);
-  border-radius: var(--radius-2);
-  font-size: var(--font-size-3);
-  cursor: pointer;
-  transition: background var(--transition-fast-2);
+/* ============================================================
+   COMPONENTS — scoped UI pieces
+   ============================================================ */
+
+@layer components {
+  /* .nav, .login-form, .card, etc. — added as pages are built */
 }
 
-.counter button:hover {
-  background: var(--indigo-7);
-}
+/* ============================================================
+   UTILITIES — single-purpose helpers
+   ============================================================ */
 
-.counter span {
-  font-size: var(--font-size-5);
-  font-weight: var(--font-weight-7);
-  min-width: var(--size-9);
-  text-align: center;
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .flex {
+    display: flex;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-3);
+  }
+
+  .cluster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-3);
+  }
 }
