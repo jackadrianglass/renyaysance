@@ -1,184 +1,284 @@
-import gleam/http/response.{type Response}
-import gleam/int
-import gleam/list
-import gleam/option.{type Option}
-import gleam/result
+import gleam/uri.{type Uri}
 import lustre
 import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
-import rsvp
-import shared/groceries.{type GroceryItem, GroceryItem}
-import gleam/json
-import plinth/browser/document
-import plinth/browser/element as plinth_element
+import modem
 
 pub fn main() {
-  let initial_items =
-    document.query_selector("#model")
-    |> result.map(plinth_element.inner_text)
-    |> result.try(fn(json) {
-      json.parse(json, groceries.grocery_list_decoder())
-      |> result.replace_error(Nil)
-    })
-    |> result.unwrap([])
-
   let app = lustre.application(init, update, view)
-  let assert Ok(_) = lustre.start(app, "#app", initial_items)
-
+  let assert Ok(_) = lustre.start(app, "#app", Nil)
   Nil
+}
+
+// ROUTES ----------------------------------------------------------------------
+
+type Route {
+  Home
+  Login
+  Riddles
+  ScavengerHunt
+  SwordFighting
+  MysticArts
+  Market
+  Performances
+  Potluck
+  Donations
+  PotionQuiz
+  Archery
+  HobbyHorseRaces
+  Jousting
+  CostumeVoting
+  Tournament
+  NotFound
+}
+
+fn parse_route(uri: Uri) -> Route {
+  case uri.path_segments(uri.path) {
+    [] | [""] -> Home
+    ["login"] -> Login
+    ["riddles"] -> Riddles
+    ["scavenger-hunt"] -> ScavengerHunt
+    ["sword-fighting"] -> SwordFighting
+    ["mystic-arts"] -> MysticArts
+    ["market"] -> Market
+    ["performances"] -> Performances
+    ["potluck"] -> Potluck
+    ["donations"] -> Donations
+    ["potion-quiz"] -> PotionQuiz
+    ["archery"] -> Archery
+    ["hobby-horse"] -> HobbyHorseRaces
+    ["jousting"] -> Jousting
+    ["costume-voting"] -> CostumeVoting
+    ["tournament"] -> Tournament
+    _ -> NotFound
+  }
+}
+
+fn href(route: Route) -> attribute.Attribute(Msg) {
+  let path = case route {
+    Home -> "/"
+    Login -> "/login"
+    Riddles -> "/riddles"
+    ScavengerHunt -> "/scavenger-hunt"
+    SwordFighting -> "/sword-fighting"
+    MysticArts -> "/mystic-arts"
+    Market -> "/market"
+    Performances -> "/performances"
+    Potluck -> "/potluck"
+    Donations -> "/donations"
+    PotionQuiz -> "/potion-quiz"
+    Archery -> "/archery"
+    HobbyHorseRaces -> "/hobby-horse"
+    Jousting -> "/jousting"
+    CostumeVoting -> "/costume-voting"
+    Tournament -> "/tournament"
+    NotFound -> "/404"
+  }
+  attribute.href(path)
 }
 
 // MODEL -----------------------------------------------------------------------
 
 type Model {
-  Model(
-    items: List(GroceryItem),
-    new_item: String,
-    saving: Bool,
-    error: Option(String),
-  )
+  Model(route: Route)
 }
 
-fn init(items: List(GroceryItem)) -> #(Model, Effect(Msg)) {
-  let model =
-    Model(items: items, new_item: "", saving: False, error: option.None)
-
-  #(model, effect.none())
+fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
+  let route = case modem.initial_uri() {
+    Ok(uri) -> parse_route(uri)
+    Error(_) -> Home
+  }
+  #(Model(route:), modem.init(fn(uri) { OnRouteChange(parse_route(uri)) }))
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 type Msg {
-  ServerSavedList(Result(Response(String), rsvp.Error(String)))
-  UserAddedItem
-  UserTypedNewItem(String)
-  UserSavedList
-  UserUpdatedQuantity(index: Int, quantity: Int)
+  OnRouteChange(Route)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ServerSavedList(Ok(_)) -> #(
-      Model(..model, saving: False, error: option.None),
-      effect.none(),
-    )
-
-    ServerSavedList(Error(_)) -> #(
-      Model(..model, saving: False, error: option.Some("Failed to save list")),
-      effect.none(),
-    )
-
-    UserAddedItem -> {
-      case model.new_item {
-        "" -> #(model, effect.none())
-        name -> {
-          let item = GroceryItem(name: name, quantity: 1)
-          let updated_items = list.append(model.items, [item])
-
-          #(Model(..model, items: updated_items, new_item: ""), effect.none())
-        }
-      }
-    }
-
-    UserTypedNewItem(text) -> #(Model(..model, new_item: text), effect.none())
-
-    UserSavedList -> #(Model(..model, saving: True), save_list(model.items))
-
-    UserUpdatedQuantity(index:, quantity:) -> {
-      let updated_items =
-        list.index_map(model.items, fn(item, item_index) {
-          case item_index == index {
-            True -> GroceryItem(..item, quantity:)
-            False -> item
-          }
-        })
-
-      #(Model(..model, items: updated_items), effect.none())
-    }
+    OnRouteChange(route) -> #(Model(route:), effect.none())
   }
-}
-
-fn save_list(items: List(GroceryItem)) -> Effect(Msg) {
-  let body = groceries.grocery_list_to_json(items)
-  let url = "/api/groceries"
-
-  rsvp.post(url, body, rsvp.expect_ok_response(ServerSavedList))
 }
 
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  let styles = [
-    #("max-width", "30ch"),
-    #("margin", "0 auto"),
-    #("display", "flex"),
-    #("flex-direction", "column"),
-    #("gap", "1em"),
-  ]
-
-  html.div([attribute.styles(styles)], [
-    html.h1([], [html.text("Grocery List")]),
-    view_grocery_list(model.items),
-    view_new_item(model.new_item),
-    html.div([], [
-      html.button(
-        [event.on_click(UserSavedList), attribute.disabled(model.saving)],
-        [
-          html.text(case model.saving {
-            True -> "Saving..."
-            False -> "Save List"
-          }),
-        ],
-      ),
-    ]),
-    case model.error {
-      option.None -> element.none()
-      option.Some(error) ->
-        html.div([attribute.style("color", "red")], [html.text(error)])
-    },
-  ])
-}
-
-fn view_new_item(new_item: String) -> Element(Msg) {
-  html.div([], [
-    html.input([
-      attribute.placeholder("Enter item name"),
-      attribute.value(new_item),
-      event.on_input(UserTypedNewItem),
-    ]),
-    html.button([event.on_click(UserAddedItem)], [html.text("Add")]),
-  ])
-}
-
-fn view_grocery_list(items: List(GroceryItem)) -> Element(Msg) {
-  case items {
-    [] -> html.p([], [html.text("No items in your list yet.")])
-    _ -> {
-      html.ul(
-        [],
-        list.index_map(items, fn(item, index) {
-          html.li([], [view_grocery_item(item, index)])
-        }),
-      )
-    }
+  case model.route {
+    Home -> view_home()
+    Login -> view_login()
+    Riddles -> view_riddles()
+    ScavengerHunt -> view_scavenger_hunt()
+    SwordFighting -> view_sword_fighting()
+    MysticArts -> view_mystic_arts()
+    Market -> view_market()
+    Performances -> view_performances()
+    Potluck -> view_potluck()
+    Donations -> view_donations()
+    PotionQuiz -> view_potion_quiz()
+    Archery -> view_archery()
+    HobbyHorseRaces -> view_hobby_horse_races()
+    Jousting -> view_jousting()
+    CostumeVoting -> view_costume_voting()
+    Tournament -> view_tournament()
+    NotFound -> view_not_found()
   }
 }
 
-fn view_grocery_item(item: GroceryItem, index: Int) -> Element(Msg) {
-  html.div([attribute.styles([#("display", "flex"), #("gap", "1em")])], [
-    html.span([attribute.style("flex", "1")], [html.text(item.name)]),
-    html.input([
-      attribute.style("width", "4em"),
-      attribute.type_("number"),
-      attribute.value(int.to_string(item.quantity)),
-      attribute.min("0"),
-      event.on_input(fn(value) {
-        result.unwrap(int.parse(value), 0)
-        |> UserUpdatedQuantity(index, quantity: _)
-      }),
+fn nav_link(route: Route, label: String) -> Element(Msg) {
+  html.a([href(route)], [html.text(label)])
+}
+
+fn page(title: String, body: List(Element(Msg))) -> Element(Msg) {
+  html.div([], [
+    html.nav([], [nav_link(Home, "Home")]),
+    html.h1([], [html.text(title)]),
+    ..body
+  ])
+}
+
+// HOME -----------------------------------------------------------------------
+
+fn view_home() -> Element(Msg) {
+  html.div([], [
+    html.h1([], [html.text("Rennyaysance")]),
+    html.p([], [html.text("Welcome to the party. Choose your path.")]),
+    html.h2([], [html.text("Side Quests")]),
+    html.ul([], [
+      html.li([], [nav_link(Riddles, "Riddles")]),
+      html.li([], [nav_link(ScavengerHunt, "Scavenger Hunt")]),
+      html.li([], [nav_link(SwordFighting, "Sword Fighting")]),
+      html.li([], [nav_link(MysticArts, "Mystic Arts")]),
     ]),
+    html.h2([], [html.text("Events")]),
+    html.ul([], [
+      html.li([], [nav_link(Market, "Market")]),
+      html.li([], [nav_link(Performances, "Performance Lineup")]),
+      html.li([], [nav_link(Potluck, "Potluck")]),
+      html.li([], [nav_link(Donations, "Donations & Charity")]),
+    ]),
+    html.h2([], [html.text("Main Quests")]),
+    html.ul([], [
+      html.li([], [nav_link(PotionQuiz, "Potion Quiz")]),
+      html.li([], [nav_link(Archery, "Archery")]),
+      html.li([], [nav_link(HobbyHorseRaces, "Hobby Horse Races")]),
+      html.li([], [nav_link(Jousting, "King's Court Jousting")]),
+    ]),
+    html.h2([], [html.text("Other")]),
+    html.ul([], [
+      html.li([], [nav_link(CostumeVoting, "Costume Voting")]),
+      html.li([], [nav_link(Tournament, "Tournament Leaderboard")]),
+      html.li([], [nav_link(Login, "Login")]),
+    ]),
+  ])
+}
+
+// PAGES -----------------------------------------------------------------------
+
+fn view_login() -> Element(Msg) {
+  page("Login", [
+    html.p([], [html.text("Sign in to track your progress and vote.")]),
+  ])
+}
+
+fn view_riddles() -> Element(Msg) {
+  page("Riddles", [
+    html.p([], [html.text("Solve riddles to earn side quest points.")]),
+  ])
+}
+
+fn view_scavenger_hunt() -> Element(Msg) {
+  page("Scavenger Hunt", [
+    html.p([], [html.text("Find hidden items scattered around the grounds.")]),
+  ])
+}
+
+fn view_sword_fighting() -> Element(Msg) {
+  page("Sword Fighting", [
+    html.p([], [html.text("Test your mettle in honorable combat.")]),
+  ])
+}
+
+fn view_mystic_arts() -> Element(Msg) {
+  page("Mystic Arts", [
+    html.p([], [html.text("Demonstrate your command of the arcane.")]),
+  ])
+}
+
+fn view_market() -> Element(Msg) {
+  page("Market", [
+    html.p([], [html.text("Browse the market stalls and vendor offerings.")]),
+  ])
+}
+
+fn view_performances() -> Element(Msg) {
+  page("Performance Lineup", [
+    html.p([], [html.text("See who is performing and when.")]),
+  ])
+}
+
+fn view_potluck() -> Element(Msg) {
+  page("Potluck", [
+    html.p([], [html.text("The communal feast — see what's on the table.")]),
+  ])
+}
+
+fn view_donations() -> Element(Msg) {
+  page("Donations & Charity", [
+    html.p([], [html.text("Contribute to the cause. Cash and e-transfer accepted.")]),
+  ])
+}
+
+fn view_potion_quiz() -> Element(Msg) {
+  page("Potion Quiz", [
+    html.p([], [html.text("Identify the correct potion to advance.")]),
+  ])
+}
+
+fn view_archery() -> Element(Msg) {
+  page("Archery", [
+    html.p([], [html.text("Loose your arrows and claim your score.")]),
+  ])
+}
+
+fn view_hobby_horse_races() -> Element(Msg) {
+  page("Hobby Horse Races", [
+    html.p([], [html.text("Mount up. The track awaits.")]),
+  ])
+}
+
+fn view_jousting() -> Element(Msg) {
+  page("King's Court Jousting", [
+    html.p([], [
+      html.text(
+        "Single-elimination bracket tournament. Winners advance to the final.",
+      ),
+    ]),
+  ])
+}
+
+fn view_costume_voting() -> Element(Msg) {
+  page("Costume Voting", [
+    html.p([], [html.text("Vote for the best costume of the day.")]),
+  ])
+}
+
+fn view_tournament() -> Element(Msg) {
+  page("Tournament Leaderboard", [
+    html.p([], [
+      html.text(
+        "Points accumulated across all events. Top competitors advance to the final tournament.",
+      ),
+    ]),
+  ])
+}
+
+fn view_not_found() -> Element(Msg) {
+  page("404", [
+    html.p([], [html.text("This path leads nowhere.")]),
   ])
 }
