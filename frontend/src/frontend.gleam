@@ -1,10 +1,32 @@
-import gleam/uri.{type Uri}
+import gleam/dynamic/decode
+import gleam/json
+import gleam/option.{type Option}
+import local_storage
 import lustre
-import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/event
 import modem
+import page/archery
+import page/costume_voting
+import page/donations
+import page/hobby_horse_races
+import page/home
+import page/jousting
+import page/login
+import page/market
+import page/mystic_arts
+import page/not_found
+import page/performances
+import page/potluck
+import page/potion_quiz
+import page/riddles
+import page/scavenger_hunt
+import page/sword_fighting
+import page/tournament
+import router.{type Route}
+import rsvp
 
 pub fn main() {
   let app = lustre.application(init, update, view)
@@ -12,273 +34,163 @@ pub fn main() {
   Nil
 }
 
-// ROUTES ----------------------------------------------------------------------
-
-type Route {
-  Home
-  Login
-  Riddles
-  ScavengerHunt
-  SwordFighting
-  MysticArts
-  Market
-  Performances
-  Potluck
-  Donations
-  PotionQuiz
-  Archery
-  HobbyHorseRaces
-  Jousting
-  CostumeVoting
-  Tournament
-  NotFound
-}
-
-fn parse_route(uri: Uri) -> Route {
-  case uri.path_segments(uri.path) {
-    [] | [""] -> Home
-    ["login"] -> Login
-    ["riddles"] -> Riddles
-    ["scavenger-hunt"] -> ScavengerHunt
-    ["sword-fighting"] -> SwordFighting
-    ["mystic-arts"] -> MysticArts
-    ["market"] -> Market
-    ["performances"] -> Performances
-    ["potluck"] -> Potluck
-    ["donations"] -> Donations
-    ["potion-quiz"] -> PotionQuiz
-    ["archery"] -> Archery
-    ["hobby-horse"] -> HobbyHorseRaces
-    ["jousting"] -> Jousting
-    ["costume-voting"] -> CostumeVoting
-    ["tournament"] -> Tournament
-    _ -> NotFound
-  }
-}
-
-fn href(route: Route) -> attribute.Attribute(Msg) {
-  let path = case route {
-    Home -> "/"
-    Login -> "/login"
-    Riddles -> "/riddles"
-    ScavengerHunt -> "/scavenger-hunt"
-    SwordFighting -> "/sword-fighting"
-    MysticArts -> "/mystic-arts"
-    Market -> "/market"
-    Performances -> "/performances"
-    Potluck -> "/potluck"
-    Donations -> "/donations"
-    PotionQuiz -> "/potion-quiz"
-    Archery -> "/archery"
-    HobbyHorseRaces -> "/hobby-horse"
-    Jousting -> "/jousting"
-    CostumeVoting -> "/costume-voting"
-    Tournament -> "/tournament"
-    NotFound -> "/404"
-  }
-  attribute.href(path)
-}
-
 // MODEL -----------------------------------------------------------------------
 
+const user_key = "rennyaysance:user"
+
 type Model {
-  Model(route: Route)
+  Model(
+    route: Route,
+    user: Option(String),
+    login_name: String,
+    login_password: String,
+    login_error: Option(String),
+    login_loading: Bool,
+  )
 }
 
 fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
   let route = case modem.initial_uri() {
-    Ok(uri) -> parse_route(uri)
-    Error(_) -> Home
+    Ok(uri) -> router.parse_route(uri)
+    Error(_) -> router.Home
   }
-  #(Model(route:), modem.init(fn(uri) { OnRouteChange(parse_route(uri)) }))
+  let model =
+    Model(
+      route:,
+      user: local_storage.get(user_key),
+      login_name: "",
+      login_password: "",
+      login_error: option.None,
+      login_loading: False,
+    )
+  #(model, modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }))
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 type Msg {
   OnRouteChange(Route)
+  UserTypedLoginName(String)
+  UserTypedLoginPassword(String)
+  UserSubmittedLogin
+  ServerRespondedToLogin(Result(String, rsvp.Error(String)))
+  UserLoggedOut
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    OnRouteChange(route) -> #(Model(route:), effect.none())
+    OnRouteChange(route) -> #(Model(..model, route:), effect.none())
+
+    UserTypedLoginName(name) -> #(
+      Model(..model, login_name: name),
+      effect.none(),
+    )
+
+    UserTypedLoginPassword(password) -> #(
+      Model(..model, login_password: password),
+      effect.none(),
+    )
+
+    UserSubmittedLogin ->
+      case model.login_name {
+        "" -> #(
+          Model(..model, login_error: option.Some("Please enter your name.")),
+          effect.none(),
+        )
+        name -> #(
+          Model(..model, login_loading: True, login_error: option.None),
+          do_login(name, model.login_password),
+        )
+      }
+
+    ServerRespondedToLogin(Ok(name)) -> {
+      local_storage.set(user_key, name)
+      #(
+        Model(
+          ..model,
+          user: option.Some(name),
+          login_loading: False,
+          login_error: option.None,
+        ),
+        effect.none(),
+      )
+    }
+
+    ServerRespondedToLogin(Error(_)) -> #(
+      Model(
+        ..model,
+        login_loading: False,
+        login_error: option.Some("Wrong password."),
+      ),
+      effect.none(),
+    )
+
+    UserLoggedOut -> {
+      local_storage.remove(user_key)
+      #(
+        Model(..model, user: option.None, login_name: "", login_password: ""),
+        effect.none(),
+      )
+    }
   }
+}
+
+fn do_login(name: String, password: String) -> Effect(Msg) {
+  let body =
+    json.object([
+      #("name", json.string(name)),
+      #("password", json.string(password)),
+    ])
+  let decoder = {
+    use name <- decode.field("name", decode.string)
+    decode.success(name)
+  }
+  rsvp.post("/api/login", body, rsvp.expect_json(decoder, ServerRespondedToLogin))
 }
 
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  case model.route {
-    Home -> view_home()
-    Login -> view_login()
-    Riddles -> view_riddles()
-    ScavengerHunt -> view_scavenger_hunt()
-    SwordFighting -> view_sword_fighting()
-    MysticArts -> view_mystic_arts()
-    Market -> view_market()
-    Performances -> view_performances()
-    Potluck -> view_potluck()
-    Donations -> view_donations()
-    PotionQuiz -> view_potion_quiz()
-    Archery -> view_archery()
-    HobbyHorseRaces -> view_hobby_horse_races()
-    Jousting -> view_jousting()
-    CostumeVoting -> view_costume_voting()
-    Tournament -> view_tournament()
-    NotFound -> view_not_found()
+  case model.user {
+    option.None ->
+      login.view(
+        model.login_name,
+        model.login_password,
+        model.login_error,
+        model.login_loading,
+        UserTypedLoginName,
+        UserTypedLoginPassword,
+        UserSubmittedLogin,
+      )
+
+    option.Some(_) ->
+      html.div([], [
+        html.div([], [
+          html.button([event.on_click(UserLoggedOut)], [html.text("Logout")]),
+        ]),
+        view_page(model.route),
+      ])
   }
 }
 
-fn nav_link(route: Route, label: String) -> Element(Msg) {
-  html.a([href(route)], [html.text(label)])
-}
-
-fn page(title: String, body: List(Element(Msg))) -> Element(Msg) {
-  html.div([], [
-    html.nav([], [nav_link(Home, "Home")]),
-    html.h1([], [html.text(title)]),
-    ..body
-  ])
-}
-
-// HOME -----------------------------------------------------------------------
-
-fn view_home() -> Element(Msg) {
-  html.div([], [
-    html.h1([], [html.text("Rennyaysance")]),
-    html.p([], [html.text("Welcome to the party. Choose your path.")]),
-    html.h2([], [html.text("Side Quests")]),
-    html.ul([], [
-      html.li([], [nav_link(Riddles, "Riddles")]),
-      html.li([], [nav_link(ScavengerHunt, "Scavenger Hunt")]),
-      html.li([], [nav_link(SwordFighting, "Sword Fighting")]),
-      html.li([], [nav_link(MysticArts, "Mystic Arts")]),
-    ]),
-    html.h2([], [html.text("Events")]),
-    html.ul([], [
-      html.li([], [nav_link(Market, "Market")]),
-      html.li([], [nav_link(Performances, "Performance Lineup")]),
-      html.li([], [nav_link(Potluck, "Potluck")]),
-      html.li([], [nav_link(Donations, "Donations & Charity")]),
-    ]),
-    html.h2([], [html.text("Main Quests")]),
-    html.ul([], [
-      html.li([], [nav_link(PotionQuiz, "Potion Quiz")]),
-      html.li([], [nav_link(Archery, "Archery")]),
-      html.li([], [nav_link(HobbyHorseRaces, "Hobby Horse Races")]),
-      html.li([], [nav_link(Jousting, "King's Court Jousting")]),
-    ]),
-    html.h2([], [html.text("Other")]),
-    html.ul([], [
-      html.li([], [nav_link(CostumeVoting, "Costume Voting")]),
-      html.li([], [nav_link(Tournament, "Tournament Leaderboard")]),
-      html.li([], [nav_link(Login, "Login")]),
-    ]),
-  ])
-}
-
-// PAGES -----------------------------------------------------------------------
-
-fn view_login() -> Element(Msg) {
-  page("Login", [
-    html.p([], [html.text("Sign in to track your progress and vote.")]),
-  ])
-}
-
-fn view_riddles() -> Element(Msg) {
-  page("Riddles", [
-    html.p([], [html.text("Solve riddles to earn side quest points.")]),
-  ])
-}
-
-fn view_scavenger_hunt() -> Element(Msg) {
-  page("Scavenger Hunt", [
-    html.p([], [html.text("Find hidden items scattered around the grounds.")]),
-  ])
-}
-
-fn view_sword_fighting() -> Element(Msg) {
-  page("Sword Fighting", [
-    html.p([], [html.text("Test your mettle in honorable combat.")]),
-  ])
-}
-
-fn view_mystic_arts() -> Element(Msg) {
-  page("Mystic Arts", [
-    html.p([], [html.text("Demonstrate your command of the arcane.")]),
-  ])
-}
-
-fn view_market() -> Element(Msg) {
-  page("Market", [
-    html.p([], [html.text("Browse the market stalls and vendor offerings.")]),
-  ])
-}
-
-fn view_performances() -> Element(Msg) {
-  page("Performance Lineup", [
-    html.p([], [html.text("See who is performing and when.")]),
-  ])
-}
-
-fn view_potluck() -> Element(Msg) {
-  page("Potluck", [
-    html.p([], [html.text("The communal feast — see what's on the table.")]),
-  ])
-}
-
-fn view_donations() -> Element(Msg) {
-  page("Donations & Charity", [
-    html.p([], [html.text("Contribute to the cause. Cash and e-transfer accepted.")]),
-  ])
-}
-
-fn view_potion_quiz() -> Element(Msg) {
-  page("Potion Quiz", [
-    html.p([], [html.text("Identify the correct potion to advance.")]),
-  ])
-}
-
-fn view_archery() -> Element(Msg) {
-  page("Archery", [
-    html.p([], [html.text("Loose your arrows and claim your score.")]),
-  ])
-}
-
-fn view_hobby_horse_races() -> Element(Msg) {
-  page("Hobby Horse Races", [
-    html.p([], [html.text("Mount up. The track awaits.")]),
-  ])
-}
-
-fn view_jousting() -> Element(Msg) {
-  page("King's Court Jousting", [
-    html.p([], [
-      html.text(
-        "Single-elimination bracket tournament. Winners advance to the final.",
-      ),
-    ]),
-  ])
-}
-
-fn view_costume_voting() -> Element(Msg) {
-  page("Costume Voting", [
-    html.p([], [html.text("Vote for the best costume of the day.")]),
-  ])
-}
-
-fn view_tournament() -> Element(Msg) {
-  page("Tournament Leaderboard", [
-    html.p([], [
-      html.text(
-        "Points accumulated across all events. Top competitors advance to the final tournament.",
-      ),
-    ]),
-  ])
-}
-
-fn view_not_found() -> Element(Msg) {
-  page("404", [
-    html.p([], [html.text("This path leads nowhere.")]),
-  ])
+fn view_page(route: Route) -> Element(Msg) {
+  case route {
+    router.Home -> home.view()
+    router.Login -> home.view()
+    router.Riddles -> riddles.view()
+    router.ScavengerHunt -> scavenger_hunt.view()
+    router.SwordFighting -> sword_fighting.view()
+    router.MysticArts -> mystic_arts.view()
+    router.Market -> market.view()
+    router.Performances -> performances.view()
+    router.Potluck -> potluck.view()
+    router.Donations -> donations.view()
+    router.PotionQuiz -> potion_quiz.view()
+    router.Archery -> archery.view()
+    router.HobbyHorseRaces -> hobby_horse_races.view()
+    router.Jousting -> jousting.view()
+    router.CostumeVoting -> costume_voting.view()
+    router.Tournament -> tournament.view()
+    router.NotFound -> not_found.view()
+  }
 }

@@ -2,6 +2,7 @@ import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/http.{Get, Post}
 import gleam/json
+import gleam/list
 import gleam/result
 import lustre/attribute
 import lustre/element
@@ -11,20 +12,20 @@ import storail
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
 
-import shared/groceries.{type GroceryItem}
+// Change this to your party password before deploying.
+const party_password = "renaissance"
 
 pub fn main() {
   wisp.configure_logger()
   let secret_key_base = wisp.random_string(64)
 
-  // Set up our database
-  let assert Ok(db) = setup_database()
+  let assert Ok(users_db) = setup_users_db()
 
   let assert Ok(priv_directory) = wisp.priv_directory("backend")
   let static_directory = priv_directory <> "/static"
 
   let assert Ok(_) =
-    handle_request(db, static_directory, _)
+    handle_request(users_db, static_directory, _)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
     |> mist.port(3000)
@@ -33,7 +34,7 @@ pub fn main() {
   process.sleep_forever()
 }
 
-// REQUEST HANDLERS ------------------------------------------------------------
+// MIDDLEWARE ------------------------------------------------------------------
 
 fn app_middleware(
   req: Request,
@@ -49,50 +50,37 @@ fn app_middleware(
   next(req)
 }
 
+// REQUEST HANDLERS ------------------------------------------------------------
+
 fn handle_request(
-  db: storail.Collection(List(GroceryItem)),
+  users_db: storail.Collection(List(String)),
   static_directory: String,
   req: Request,
 ) -> Response {
   use req <- app_middleware(req, static_directory)
 
   case req.method, wisp.path_segments(req) {
-    // API endpoint for saving grocery lists
-    Post, ["api", "groceries"] -> handle_save_groceries(db, req)
-
-    // Everything else gets our HTML with hydration data
-    Get, _ -> serve_index(db)
-
-    // Fallback for other methods/paths
+    Post, ["api", "login"] -> handle_login(users_db, req)
+    Get, _ -> serve_index()
     _, _ -> wisp.not_found()
   }
 }
 
-fn fetch_items_from_db(
-  db: storail.Collection(List(GroceryItem)),
-) -> List(GroceryItem) {
-  storail.read(grocery_list_key(db))
-  |> result.unwrap([])
-}
-
-fn serve_index(db: storail.Collection(List(GroceryItem))) -> Response {
-  // NEW: Fetch grocery items from database
-  let items = fetch_items_from_db(db)
-
+fn serve_index() -> Response {
   let html =
     html.html([], [
       html.head([], [
-        html.title([], "Grocery List"),
+        html.meta([attribute.attribute("charset", "utf-8")]),
+        html.meta([
+          attribute.attribute("name", "viewport"),
+          attribute.attribute("content", "width=device-width, initial-scale=1"),
+        ]),
+        html.title([], "Rennyaysance"),
         html.script(
           [attribute.type_("module"), attribute.src("/static/frontend.js")],
           "",
         ),
       ]),
-      // NEW: include a script tag with our initial grocery list
-      html.script(
-        [attribute.type_("application/json"), attribute.id("model")],
-        json.to_string(groceries.grocery_list_to_json(items))
-      ),
       html.body([], [html.div([attribute.id("app")], [])]),
     ])
 
@@ -101,49 +89,59 @@ fn serve_index(db: storail.Collection(List(GroceryItem))) -> Response {
   |> wisp.html_response(200)
 }
 
-fn handle_save_groceries(
-  db: storail.Collection(List(GroceryItem)),
-  req: Request,
-) -> Response {
-  use json <- wisp.require_json(req)
+type LoginRequest {
+  LoginRequest(name: String, password: String)
+}
 
-  case decode.run(json, groceries.grocery_list_decoder()) {
-    Ok(items) ->
-      case save_items_to_db(db, items) {
-        Ok(_) -> wisp.ok()
-        Error(_) -> wisp.internal_server_error()
+fn login_request_decoder() -> decode.Decoder(LoginRequest) {
+  use name <- decode.field("name", decode.string)
+  use password <- decode.field("password", decode.string)
+  decode.success(LoginRequest(name:, password:))
+}
+
+fn handle_login(db: storail.Collection(List(String)), req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, login_request_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(LoginRequest(name:, password:)) ->
+      case password == party_password {
+        False -> wisp.response(401)
+        True -> {
+          upsert_user(db, name)
+          json.to_string(json.object([#("name", json.string(name))]))
+          |> wisp.json_response(200)
+        }
       }
-    Error(_) -> wisp.bad_request("Request failed")
   }
 }
 
 // DATABASE --------------------------------------------------------------------
 
-fn setup_database() -> Result(storail.Collection(List(GroceryItem)), Nil) {
+fn setup_users_db() -> Result(storail.Collection(List(String)), Nil) {
   let config = storail.Config(storage_path: "./data")
-
-  let items =
+  let users =
     storail.Collection(
-      name: "grocery_list",
-      to_json: groceries.grocery_list_to_json,
-      decoder: groceries.grocery_list_decoder(),
+      name: "users",
+      to_json: fn(names) { json.array(names, json.string) },
+      decoder: decode.list(decode.string),
       config:,
     )
-
-  Ok(items)
+  Ok(users)
 }
 
-fn grocery_list_key(
-  db: storail.Collection(List(GroceryItem)),
-) -> storail.Key(List(GroceryItem)) {
-  // In a real application, you would probably store items as individual
-  // documents, or use a database like PostgreSQL instead.
-  storail.key(db, "grocery_list")
+fn users_key(
+  db: storail.Collection(List(String)),
+) -> storail.Key(List(String)) {
+  storail.key(db, "all")
 }
 
-fn save_items_to_db(
-  db: storail.Collection(List(GroceryItem)),
-  items: List(GroceryItem),
-) -> Result(Nil, storail.StorailError) {
-  storail.write(grocery_list_key(db), items)
+fn upsert_user(db: storail.Collection(List(String)), name: String) -> Nil {
+  let users = storail.read(users_key(db)) |> result.unwrap([])
+  case list.contains(users, name) {
+    True -> Nil
+    False -> {
+      let _ = storail.write(users_key(db), list.append(users, [name]))
+      Nil
+    }
+  }
 }
