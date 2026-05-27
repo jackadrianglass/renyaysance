@@ -3,6 +3,7 @@ import gleam/json
 import gleam/option.{type Option}
 import local_storage
 import lustre
+import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
@@ -165,8 +166,15 @@ fn view(model: Model) -> Element(Msg) {
 
     option.Some(_) ->
       html.div([], [
-        html.div([], [
-          html.button([event.on_click(UserLoggedOut)], [html.text("Logout")]),
+        html.nav([attribute.class("nav")], [
+          html.a(
+            [router.href(router.Home), attribute.class("nav-brand")],
+            [html.text("Rennyaysance")],
+          ),
+          html.button(
+            [event.on_click(UserLoggedOut), attribute.class("nav-logout")],
+            [html.text("Logout")],
+          ),
         ]),
         view_page(model.route),
       ])
