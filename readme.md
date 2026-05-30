@@ -5,7 +5,7 @@ Hosting
 - [x] CI/CD to deploy
 - [x] Basic hosting of the application
 - [x] Basic login system
-- [ ] Get a domain and route it to website
+- [x] Get a domain and route it to website
 
 - [x] Welcome page
 - [ ] Leaderboard
@@ -16,23 +16,40 @@ Side Quests
 - [ ] Riddles
     - [ ] Find 3 riddles
 - [ ] Scavenger hunt
-Maybe points?
+    - [ ] Ask Maison what this will look like
 - [ ] Sword fighting
+    - [ ] Ask Maison what her vision is here
+    - [ ] Placeholder combat matches per user
+        - Have a drop down of other users
+        - Award points for winning matches
+        - Cap points
+        - Have a history of matches
 - [ ] Mystic arts
 
 Events
-- [ ] Market (add instructions)
+- [ ] Market
+    - Instructions where to setup the market
 - [ ] Performance lineup
+    - Write down the times and the performers
+    - Have the UI show the current time and what's coming next
 - [ ] Potluck
+    - Write down instructions for the potluck
 - [ ] Donations + Charity (cash + etransfer)
+    - What the donations are for
+    - Where to send etransfer
+    - Where to put cash (beggar?)
 
 Main Quests
 - [ ] Potion Quiz
+    - Answer key? Multiple choice or you just have to guess?
 - [ ] Archery
+    - Award points based on accuracy?
 - [ ] Hobby horse races
 - [ ] King's court jousting (bracket generator)
+    - Generate a tournament bracket thing based on folks who sign up
 
 - [ ] Costume voting
+    - Based on name
 
 Tournament
 - Points accumulated over other events
