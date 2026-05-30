@@ -10,7 +10,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import modem
-import plinth/javascript/global
 import page/archery
 import page/costume_voting
 import page/hobby_horse_races
@@ -27,6 +26,7 @@ import page/riddles
 import page/scavenger_hunt
 import page/sword_fighting
 import page/tournament
+import plinth/javascript/global
 import router.{type Route}
 import rsvp
 
@@ -47,7 +47,14 @@ type AuthState {
 }
 
 type Model {
-  Model(route: Route, auth: AuthState, leaderboard: List(#(String, Int)))
+  Model(
+    route: Route,
+    auth: AuthState,
+    leaderboard: List(#(String, Int)),
+    potion_quiz: potion_quiz.Model,
+    archery: archery.Model,
+    jousting: jousting.Model,
+  )
 }
 
 fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
@@ -60,7 +67,14 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     option.None -> LoggedOut("", "", option.None)
   }
   #(
-    Model(route:, auth:, leaderboard: []),
+    Model(
+      route:,
+      auth:,
+      leaderboard: [],
+      potion_quiz: potion_quiz.init(),
+      archery: archery.init(),
+      jousting: jousting.init(),
+    ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
       fetch_leaderboard(),
@@ -79,52 +93,69 @@ type Msg {
   UserLoggedOut
   FetchLeaderboard
   LeaderboardFetched(Result(List(#(String, Int)), rsvp.Error(String)))
+  PotionQuizMsg(potion_quiz.Msg)
+  ArcheryMsg(archery.Msg)
+  JoustingMsg(jousting.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     OnRouteChange(route) -> #(Model(..model, route:), effect.none())
 
-    UserTypedLoginName(name) -> case model.auth {
-      LoggedOut(_, password, error) -> #(
-        Model(..model, auth: LoggedOut(name, password, error)),
-        effect.none(),
-      )
-      _ -> #(model, effect.none())
-    }
+    UserTypedLoginName(name) ->
+      case model.auth {
+        LoggedOut(_, password, error) -> #(
+          Model(..model, auth: LoggedOut(name, password, error)),
+          effect.none(),
+        )
+        _ -> #(model, effect.none())
+      }
 
-    UserTypedLoginPassword(password) -> case model.auth {
-      LoggedOut(name, _, error) -> #(
-        Model(..model, auth: LoggedOut(name, password, error)),
-        effect.none(),
-      )
-      _ -> #(model, effect.none())
-    }
+    UserTypedLoginPassword(password) ->
+      case model.auth {
+        LoggedOut(name, _, error) -> #(
+          Model(..model, auth: LoggedOut(name, password, error)),
+          effect.none(),
+        )
+        _ -> #(model, effect.none())
+      }
 
-    UserSubmittedLogin -> case model.auth {
-      LoggedOut("", password, _) -> #(
-        Model(..model, auth: LoggedOut("", password, option.Some("Please enter your name."))),
-        effect.none(),
-      )
-      LoggedOut(name, password, _) -> #(
-        Model(..model, auth: LoggingIn(name, password)),
-        do_login(name, password),
-      )
-      _ -> #(model, effect.none())
-    }
+    UserSubmittedLogin ->
+      case model.auth {
+        LoggedOut("", password, _) -> #(
+          Model(
+            ..model,
+            auth: LoggedOut(
+              "",
+              password,
+              option.Some("Please enter your name."),
+            ),
+          ),
+          effect.none(),
+        )
+        LoggedOut(name, password, _) -> #(
+          Model(..model, auth: LoggingIn(name, password)),
+          do_login(name, password),
+        )
+        _ -> #(model, effect.none())
+      }
 
     ServerRespondedToLogin(Ok(name)) -> {
       local_storage.set(user_key, name)
       #(Model(..model, auth: LoggedIn(name)), effect.none())
     }
 
-    ServerRespondedToLogin(Error(_)) -> case model.auth {
-      LoggingIn(name, password) -> #(
-        Model(..model, auth: LoggedOut(name, password, option.Some("Wrong password."))),
-        effect.none(),
-      )
-      _ -> #(model, effect.none())
-    }
+    ServerRespondedToLogin(Error(_)) ->
+      case model.auth {
+        LoggingIn(name, password) -> #(
+          Model(
+            ..model,
+            auth: LoggedOut(name, password, option.Some("Wrong password.")),
+          ),
+          effect.none(),
+        )
+        _ -> #(model, effect.none())
+      }
 
     UserLoggedOut -> {
       local_storage.remove(user_key)
@@ -137,6 +168,43 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       let leaderboard = result |> result.unwrap(model.leaderboard)
       #(Model(..model, leaderboard:), schedule_leaderboard_poll())
     }
+
+    PotionQuizMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        potion_quiz.update(model.potion_quiz, sub_msg, handle)
+      #(
+        Model(..model, potion_quiz: sub_model),
+        effect.map(sub_effect, PotionQuizMsg),
+      )
+    }
+
+    ArcheryMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        archery.update(model.archery, sub_msg, handle)
+      #(
+        Model(..model, archery: sub_model),
+        effect.map(sub_effect, ArcheryMsg),
+      )
+    }
+
+    JoustingMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        jousting.update(model.jousting, sub_msg, handle)
+      #(
+        Model(..model, jousting: sub_model),
+        effect.map(sub_effect, JoustingMsg),
+      )
+    }
+  }
+}
+
+fn get_handle(auth: AuthState) -> String {
+  case auth {
+    LoggedIn(name) -> name
+    _ -> ""
   }
 }
 
@@ -208,14 +276,18 @@ fn view(model: Model) -> Element(Msg) {
             [html.text("Logout")],
           ),
         ]),
-        view_page(model.route, model.leaderboard),
+        view_page(model),
       ])
   }
 }
 
-fn view_page(route: Route, leaderboard: List(#(String, Int))) -> Element(Msg) {
-  case route {
-    router.Home -> home.view(leaderboard)
+fn view_page(model: Model) -> Element(Msg) {
+  case model.route {
+    router.Home -> home.view(model.leaderboard)
+    router.PotionQuiz ->
+      element.map(potion_quiz.view(model.potion_quiz), PotionQuizMsg)
+    router.Archery -> element.map(archery.view(model.archery), ArcheryMsg)
+    router.Jousting -> element.map(jousting.view(model.jousting), JoustingMsg)
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
     router.SwordFighting -> sword_fighting.view()
@@ -223,10 +295,7 @@ fn view_page(route: Route, leaderboard: List(#(String, Int))) -> Element(Msg) {
     router.Market -> market.view()
     router.Performances -> performances.view()
     router.Potluck -> potluck.view()
-    router.PotionQuiz -> potion_quiz.view()
-    router.Archery -> archery.view()
     router.HobbyHorseRaces -> hobby_horse_races.view()
-    router.Jousting -> jousting.view()
     router.CostumeVoting -> costume_voting.view()
     router.Tournament -> tournament.view()
     router.NotFound -> not_found.view()
