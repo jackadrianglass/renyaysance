@@ -1,4 +1,5 @@
 import gleam/uri.{type Uri}
+
 import lustre/attribute.{type Attribute}
 
 pub type Route {

@@ -85,6 +85,55 @@ pub fn upsert_vote(store: Store, new_vote: Vote) -> Nil {
   Nil
 }
 
+pub fn recompute_voting_results(
+  store: Store,
+  all_handles: List(String),
+) -> Nil {
+  let votes = all_votes(store)
+
+  // Count votes received per user
+  let vote_counts =
+    list.fold(votes, dict.new(), fn(acc, vote) {
+      let current = dict.get(acc, vote.votee) |> result.unwrap(0)
+      dict.insert(acc, vote.votee, current + 1)
+    })
+
+  // Ensure every user has an entry, defaulting to 0
+  let all_counts =
+    list.fold(all_handles, vote_counts, fn(acc, handle) {
+      case dict.get(acc, handle) {
+        Ok(_) -> acc
+        Error(_) -> dict.insert(acc, handle, 0)
+      }
+    })
+
+  // Sort descending to assign ranks
+  let ranked =
+    dict.to_list(all_counts)
+    |> list.sort(fn(a, b) { int.compare(b.1, a.1) })
+
+  // Upsert a voting result for every user
+  list.fold(ranked, 1, fn(rank, pair) {
+    let #(handle, _) = pair
+    let voters =
+      votes
+      |> list.filter(fn(v) { v.votee == handle })
+      |> list.map(fn(v) { v.voter })
+    upsert_result(
+      store,
+      EventResult(
+        handle:,
+        event_id: "voting",
+        raw: scoring.VotingRaw(voters:),
+        points: scoring.score_voting_rank(rank),
+      ),
+    )
+    rank + 1
+  })
+
+  Nil
+}
+
 pub fn leaderboard(store: Store) -> List(#(String, Int)) {
   all_results(store)
   |> list.fold(dict.new(), fn(acc, r) {
