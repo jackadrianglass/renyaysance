@@ -5,12 +5,12 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/result
 import lustre/attribute
 import lustre/element
 import lustre/element/html
 import mist
-import storail
+import scoring
+import store
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
 
@@ -21,7 +21,7 @@ pub fn main() {
   wisp.configure_logger()
   let secret_key_base = wisp.random_string(64)
 
-  let assert Ok(users_db) = setup_users_db()
+  let s = store.setup()
 
   let assert Ok(priv_directory) = wisp.priv_directory("backend")
   let static_directory = priv_directory <> "/static"
@@ -30,7 +30,7 @@ pub fn main() {
   let port = get_port()
 
   let assert Ok(_) =
-    handle_request(users_db, static_directory, _)
+    handle_request(s, static_directory, _)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
     |> mist.bind(host)
@@ -77,14 +77,19 @@ fn app_middleware(
 // REQUEST HANDLERS ------------------------------------------------------------
 
 fn handle_request(
-  users_db: storail.Collection(List(String)),
+  s: store.Store,
   static_directory: String,
   req: Request,
 ) -> Response {
   use req <- app_middleware(req, static_directory)
 
   case req.method, wisp.path_segments(req) {
-    Post, ["api", "login"] -> handle_login(users_db, req)
+    Post, ["api", "login"] -> handle_login(s, req)
+    Get, ["api", "events"] -> handle_get_events()
+    Post, ["api", "events", event_id, "result"] ->
+      handle_submit_result(s, event_id, req)
+    Post, ["api", "vote"] -> handle_vote(s, req)
+    Get, ["api", "leaderboard"] -> handle_get_leaderboard(s)
     Get, _ -> serve_index()
     _, _ -> wisp.not_found()
   }
@@ -136,6 +141,88 @@ fn serve_index() -> Response {
   |> wisp.html_response(200)
 }
 
+fn handle_login(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, login_request_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(LoginRequest(name:, password:)) ->
+      case password == party_password {
+        False -> wisp.response(401)
+        True -> {
+          store.upsert_user(s, name)
+          json.to_string(json.object([#("name", json.string(name))]))
+          |> wisp.json_response(200)
+        }
+      }
+  }
+}
+
+fn handle_get_events() -> Response {
+  json.array(scoring.events(), fn(event) {
+    json.object([
+      #("id", json.string(event.id)),
+      #("label", json.string(event.label)),
+    ])
+  })
+  |> json.to_string
+  |> wisp.json_response(200)
+}
+
+fn handle_submit_result(
+  s: store.Store,
+  event_id: String,
+  req: Request,
+) -> Response {
+  let self_report_ids =
+    scoring.events()
+    |> list.filter(fn(e) { e.id != "voting" })
+    |> list.map(fn(e) { e.id })
+
+  case list.contains(self_report_ids, event_id) {
+    False -> wisp.not_found()
+    True -> {
+      use json_body <- wisp.require_json(req)
+      case decode.run(json_body, submit_result_decoder()) {
+        Error(_) -> wisp.bad_request("Invalid request body")
+        Ok(SubmitResultRequest(handle:, raw:)) -> {
+          let points = scoring.score(raw)
+          store.upsert_result(
+            s,
+            store.EventResult(handle:, event_id:, raw:, points:),
+          )
+          wisp.response(204)
+        }
+      }
+    }
+  }
+}
+
+fn handle_vote(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, vote_request_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(VoteRequest(voter:, votee:)) -> {
+      store.upsert_vote(s, store.Vote(voter:, votee:))
+      store.recompute_voting_results(s, store.all_users(s))
+      wisp.response(204)
+    }
+  }
+}
+
+fn handle_get_leaderboard(s: store.Store) -> Response {
+  store.leaderboard(s)
+  |> json.array(fn(entry) {
+    json.object([
+      #("handle", json.string(entry.0)),
+      #("points", json.int(entry.1)),
+    ])
+  })
+  |> json.to_string
+  |> wisp.json_response(200)
+}
+
+// REQUEST DECODERS ------------------------------------------------------------
+
 type LoginRequest {
   LoginRequest(name: String, password: String)
 }
@@ -146,49 +233,22 @@ fn login_request_decoder() -> decode.Decoder(LoginRequest) {
   decode.success(LoginRequest(name:, password:))
 }
 
-fn handle_login(db: storail.Collection(List(String)), req: Request) -> Response {
-  use json_body <- wisp.require_json(req)
-  case decode.run(json_body, login_request_decoder()) {
-    Error(_) -> wisp.bad_request("Invalid request body")
-    Ok(LoginRequest(name:, password:)) ->
-      case password == party_password {
-        False -> wisp.response(401)
-        True -> {
-          upsert_user(db, name)
-          json.to_string(json.object([#("name", json.string(name))]))
-          |> wisp.json_response(200)
-        }
-      }
-  }
+type SubmitResultRequest {
+  SubmitResultRequest(handle: String, raw: scoring.RawInput)
 }
 
-// DATABASE --------------------------------------------------------------------
-
-fn setup_users_db() -> Result(storail.Collection(List(String)), Nil) {
-  let config = storail.Config(storage_path: "./data")
-  let users =
-    storail.Collection(
-      name: "users",
-      to_json: fn(names) { json.array(names, json.string) },
-      decoder: decode.list(decode.string),
-      config:,
-    )
-  Ok(users)
+fn submit_result_decoder() -> decode.Decoder(SubmitResultRequest) {
+  use handle <- decode.field("handle", decode.string)
+  use raw <- decode.field("raw", scoring.raw_input_decoder())
+  decode.success(SubmitResultRequest(handle:, raw:))
 }
 
-fn users_key(
-  db: storail.Collection(List(String)),
-) -> storail.Key(List(String)) {
-  storail.key(db, "all")
+type VoteRequest {
+  VoteRequest(voter: String, votee: String)
 }
 
-fn upsert_user(db: storail.Collection(List(String)), name: String) -> Nil {
-  let users = storail.read(users_key(db)) |> result.unwrap([])
-  case list.contains(users, name) {
-    True -> Nil
-    False -> {
-      let _ = storail.write(users_key(db), list.append(users, [name]))
-      Nil
-    }
-  }
+fn vote_request_decoder() -> decode.Decoder(VoteRequest) {
+  use voter <- decode.field("voter", decode.string)
+  use votee <- decode.field("votee", decode.string)
+  decode.success(VoteRequest(voter:, votee:))
 }

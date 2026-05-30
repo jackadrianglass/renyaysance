@@ -19,6 +19,7 @@ pub type Vote {
 
 pub type Store {
   Store(
+    users: storail.Collection(List(String)),
     event_results: storail.Collection(List(EventResult)),
     votes: storail.Collection(List(Vote)),
   )
@@ -28,6 +29,14 @@ pub type Store {
 
 pub fn setup() -> Store {
   let config = storail.Config(storage_path: "./data")
+
+  let users =
+    storail.Collection(
+      name: "users",
+      to_json: fn(names) { json.array(names, json.string) },
+      decoder: decode.list(decode.string),
+      config:,
+    )
 
   let event_results =
     storail.Collection(
@@ -45,7 +54,24 @@ pub fn setup() -> Store {
       config:,
     )
 
-  Store(event_results:, votes:)
+  Store(users:, event_results:, votes:)
+}
+
+pub fn all_users(store: Store) -> List(String) {
+  storail.read(storail.key(store.users, "all"))
+  |> result.unwrap([])
+}
+
+pub fn upsert_user(store: Store, name: String) -> Nil {
+  let users = all_users(store)
+  case list.contains(users, name) {
+    True -> Nil
+    False -> {
+      let _ =
+        storail.write(storail.key(store.users, "all"), list.append(users, [name]))
+      Nil
+    }
+  }
 }
 
 // PUBLIC API ------------------------------------------------------------------
