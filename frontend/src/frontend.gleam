@@ -54,6 +54,7 @@ type Model {
     potion_quiz: potion_quiz.Model,
     archery: archery.Model,
     jousting: jousting.Model,
+    costume_voting: costume_voting.Model,
   )
 }
 
@@ -66,6 +67,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     option.Some(name) -> LoggedIn(name)
     option.None -> LoggedOut("", "", option.None)
   }
+  let #(voting_model, voting_effect) = costume_voting.init()
   #(
     Model(
       route:,
@@ -74,10 +76,12 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       potion_quiz: potion_quiz.init(),
       archery: archery.init(),
       jousting: jousting.init(),
+      costume_voting: voting_model,
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
       fetch_leaderboard(),
+      effect.map(voting_effect, CostumeVotingMsg),
     ]),
   )
 }
@@ -96,6 +100,7 @@ type Msg {
   PotionQuizMsg(potion_quiz.Msg)
   ArcheryMsg(archery.Msg)
   JoustingMsg(jousting.Msg)
+  CostumeVotingMsg(costume_voting.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -198,6 +203,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         effect.map(sub_effect, JoustingMsg),
       )
     }
+
+    CostumeVotingMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        costume_voting.update(model.costume_voting, sub_msg, handle)
+      #(
+        Model(..model, costume_voting: sub_model),
+        effect.map(sub_effect, CostumeVotingMsg),
+      )
+    }
   }
 }
 
@@ -296,7 +311,11 @@ fn view_page(model: Model) -> Element(Msg) {
     router.Performances -> performances.view()
     router.Potluck -> potluck.view()
     router.HobbyHorseRaces -> hobby_horse_races.view()
-    router.CostumeVoting -> costume_voting.view()
+    router.CostumeVoting ->
+      element.map(
+        costume_voting.view(model.costume_voting),
+        CostumeVotingMsg,
+      )
     router.Tournament -> tournament.view()
     router.NotFound -> not_found.view()
   }

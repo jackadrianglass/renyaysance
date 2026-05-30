@@ -85,6 +85,7 @@ fn handle_request(
 
   case req.method, wisp.path_segments(req) {
     Post, ["api", "login"] -> handle_login(s, req)
+    Get, ["api", "users"] -> handle_get_users(s)
     Get, ["api", "events"] -> handle_get_events()
     Post, ["api", "events", event_id, "result"] ->
       handle_submit_result(s, event_id, req)
@@ -155,6 +156,13 @@ fn handle_login(s: store.Store, req: Request) -> Response {
         }
       }
   }
+}
+
+fn handle_get_users(s: store.Store) -> Response {
+  store.all_users(s)
+  |> json.array(json.string)
+  |> json.to_string
+  |> wisp.json_response(200)
 }
 
 fn handle_get_events() -> Response {
