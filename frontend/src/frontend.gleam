@@ -1,6 +1,7 @@
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option.{type Option}
+import gleam/result
 import local_storage
 import lustre
 import lustre/attribute
@@ -9,6 +10,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import modem
+import plinth/javascript/global
 import page/archery
 import page/costume_voting
 import page/hobby_horse_races
@@ -45,7 +47,7 @@ type AuthState {
 }
 
 type Model {
-  Model(route: Route, auth: AuthState)
+  Model(route: Route, auth: AuthState, leaderboard: List(#(String, Int)))
 }
 
 fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
@@ -57,7 +59,13 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     option.Some(name) -> LoggedIn(name)
     option.None -> LoggedOut("", "", option.None)
   }
-  #(Model(route:, auth:), modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }))
+  #(
+    Model(route:, auth:, leaderboard: []),
+    effect.batch([
+      modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
+      fetch_leaderboard(),
+    ]),
+  )
 }
 
 // UPDATE ----------------------------------------------------------------------
@@ -69,6 +77,8 @@ type Msg {
   UserSubmittedLogin
   ServerRespondedToLogin(Result(String, rsvp.Error(String)))
   UserLoggedOut
+  FetchLeaderboard
+  LeaderboardFetched(Result(List(#(String, Int)), rsvp.Error(String)))
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -120,6 +130,13 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       local_storage.remove(user_key)
       #(Model(..model, auth: LoggedOut("", "", option.None)), effect.none())
     }
+
+    FetchLeaderboard -> #(model, fetch_leaderboard())
+
+    LeaderboardFetched(result) -> {
+      let leaderboard = result |> result.unwrap(model.leaderboard)
+      #(Model(..model, leaderboard:), schedule_leaderboard_poll())
+    }
   }
 }
 
@@ -134,6 +151,23 @@ fn do_login(name: String, password: String) -> Effect(Msg) {
     decode.success(name)
   }
   rsvp.post("/api/login", body, rsvp.expect_json(decoder, ServerRespondedToLogin))
+}
+
+fn fetch_leaderboard() -> Effect(Msg) {
+  let decoder =
+    decode.list({
+      use handle <- decode.field("handle", decode.string)
+      use points <- decode.field("points", decode.int)
+      decode.success(#(handle, points))
+    })
+  rsvp.get("/api/leaderboard", rsvp.expect_json(decoder, LeaderboardFetched))
+}
+
+fn schedule_leaderboard_poll() -> Effect(Msg) {
+  effect.from(fn(dispatch) {
+    let _ = global.set_timeout(5000, fn() { dispatch(FetchLeaderboard) })
+    Nil
+  })
 }
 
 // VIEW ------------------------------------------------------------------------
@@ -174,14 +208,14 @@ fn view(model: Model) -> Element(Msg) {
             [html.text("Logout")],
           ),
         ]),
-        view_page(model.route),
+        view_page(model.route, model.leaderboard),
       ])
   }
 }
 
-fn view_page(route: Route) -> Element(Msg) {
+fn view_page(route: Route, leaderboard: List(#(String, Int))) -> Element(Msg) {
   case route {
-    router.Home -> home.view()
+    router.Home -> home.view(leaderboard)
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
     router.SwordFighting -> sword_fighting.view()

@@ -1,15 +1,17 @@
+import gleam/int
+import gleam/list
 import layout
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import router
 
-pub fn view() -> Element(msg) {
+pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
   layout.page("Rennyaysance", [
     html.p([], [html.text("Welcome to the party!")]),
     html.p([], [html.text("TODO: Fill out information for donation taking")]),
     html.h1([], [html.text("Leaderboard")]),
-    html.p([], [html.text("TODO: Draft the leaderboard")]),
+    view_leaderboard(leaderboard),
     html.h1([], [html.text("Main Quests")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.PotionQuiz, "Potion Quiz"),
@@ -34,3 +36,33 @@ pub fn view() -> Element(msg) {
   ])
 }
 
+fn view_leaderboard(leaderboard: List(#(String, Int))) -> Element(msg) {
+  case leaderboard {
+    [] -> html.p([], [html.text("No scores yet.")])
+    _ ->
+      html.table([attribute.class("leaderboard")], [
+        html.thead([], [
+          html.tr([], [
+            html.th([], [html.text("Rank")]),
+            html.th([], [html.text("Name")]),
+            html.th([], [html.text("Points")]),
+          ]),
+        ]),
+        html.tbody([], {
+          let #(rows, _) =
+            list.fold(leaderboard, #([], 1), fn(acc, entry) {
+              let #(rows, rank) = acc
+              let #(handle, points) = entry
+              let row =
+                html.tr([], [
+                  html.td([], [html.text(int.to_string(rank))]),
+                  html.td([], [html.text(handle)]),
+                  html.td([], [html.text(int.to_string(points))]),
+                ])
+              #([row, ..rows], rank + 1)
+            })
+          list.reverse(rows)
+        }),
+      ])
+  }
+}
