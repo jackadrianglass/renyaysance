@@ -13,7 +13,7 @@ pub fn view(
   on_password_input: fn(String) -> msg,
   on_submit: msg,
 ) -> Element(msg) {
-  html.div([], [
+  html.div([attribute.class("page")], [
     html.h1([], [html.text("Rennyaysance")]),
     html.p([], [html.text("Enter your name and the party password to join.")]),
     html.form([event.on_submit(fn(_) { on_submit })], [

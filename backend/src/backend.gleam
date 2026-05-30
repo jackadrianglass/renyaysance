@@ -1,6 +1,8 @@
+import envoy
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/http.{Get, Post}
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/result
@@ -24,14 +26,36 @@ pub fn main() {
   let assert Ok(priv_directory) = wisp.priv_directory("backend")
   let static_directory = priv_directory <> "/static"
 
+  let host = get_host()
+  let port = get_port()
+
   let assert Ok(_) =
     handle_request(users_db, static_directory, _)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
-    |> mist.port(3000)
+    |> mist.bind(host)
+    |> mist.port(port)
     |> mist.start
 
   process.sleep_forever()
+}
+
+fn get_host() -> String {
+  case envoy.get("HOST") {
+    Ok(host) -> host
+    Error(_) -> "localhost"
+  }
+}
+
+fn get_port() -> Int {
+  case envoy.get("PORT") {
+    Ok(port) ->
+      case int.parse(port) {
+        Ok(n) -> n
+        Error(_) -> 3000
+      }
+    Error(_) -> 3000
+  }
 }
 
 // MIDDLEWARE ------------------------------------------------------------------

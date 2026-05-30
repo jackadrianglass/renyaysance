@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 24">
+  <!-- Stem -->
+  <line x1="3" y1="12" x2="30" y2="12" stroke="#6b5100" stroke-width="2" stroke-linecap="round"/>
+  <!-- Upper leaf -->
+  <path d="M15 12 Q11 5 5 6 Q9 12 15 12Z" fill="#9e7800"/>
+  <!-- Lower leaf -->
+  <path d="M22 12 Q26 18 30 17 Q28 12 22 12Z" fill="#9e7800"/>
+  <!-- 5 petals arranged around center (39, 12) at radius 6 -->
+  <circle cx="39" cy="6"  r="5" fill="#d4af37"/>
+  <circle cx="45" cy="10" r="5" fill="#d4af37"/>
+  <circle cx="43" cy="17" r="5" fill="#d4af37"/>
+  <circle cx="36" cy="17" r="5" fill="#d4af37"/>
+  <circle cx="33" cy="10" r="5" fill="#d4af37"/>
+  <!-- Center boss -->
+  <circle cx="39" cy="12" r="5"  fill="#eeba30"/>
+  <circle cx="39" cy="12" r="2"  fill="#9e7800"/>
+</svg>

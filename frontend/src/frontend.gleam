@@ -11,7 +11,6 @@ import lustre/event
 import modem
 import page/archery
 import page/costume_voting
-import page/donations
 import page/hobby_horse_races
 import page/home
 import page/jousting
@@ -39,15 +38,14 @@ pub fn main() {
 
 const user_key = "rennyaysance:user"
 
+type AuthState {
+  LoggedOut(name: String, password: String, error: Option(String))
+  LoggingIn(name: String, password: String)
+  LoggedIn(name: String)
+}
+
 type Model {
-  Model(
-    route: Route,
-    user: Option(String),
-    login_name: String,
-    login_password: String,
-    login_error: Option(String),
-    login_loading: Bool,
-  )
+  Model(route: Route, auth: AuthState)
 }
 
 fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
@@ -55,16 +53,11 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     Ok(uri) -> router.parse_route(uri)
     Error(_) -> router.Home
   }
-  let model =
-    Model(
-      route:,
-      user: local_storage.get(user_key),
-      login_name: "",
-      login_password: "",
-      login_error: option.None,
-      login_loading: False,
-    )
-  #(model, modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }))
+  let auth = case local_storage.get(user_key) {
+    option.Some(name) -> LoggedIn(name)
+    option.None -> LoggedOut("", "", option.None)
+  }
+  #(Model(route:, auth:), modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }))
 }
 
 // UPDATE ----------------------------------------------------------------------
@@ -82,56 +75,50 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
     OnRouteChange(route) -> #(Model(..model, route:), effect.none())
 
-    UserTypedLoginName(name) -> #(
-      Model(..model, login_name: name),
-      effect.none(),
-    )
+    UserTypedLoginName(name) -> case model.auth {
+      LoggedOut(_, password, error) -> #(
+        Model(..model, auth: LoggedOut(name, password, error)),
+        effect.none(),
+      )
+      _ -> #(model, effect.none())
+    }
 
-    UserTypedLoginPassword(password) -> #(
-      Model(..model, login_password: password),
-      effect.none(),
-    )
+    UserTypedLoginPassword(password) -> case model.auth {
+      LoggedOut(name, _, error) -> #(
+        Model(..model, auth: LoggedOut(name, password, error)),
+        effect.none(),
+      )
+      _ -> #(model, effect.none())
+    }
 
-    UserSubmittedLogin ->
-      case model.login_name {
-        "" -> #(
-          Model(..model, login_error: option.Some("Please enter your name.")),
-          effect.none(),
-        )
-        name -> #(
-          Model(..model, login_loading: True, login_error: option.None),
-          do_login(name, model.login_password),
-        )
-      }
+    UserSubmittedLogin -> case model.auth {
+      LoggedOut("", password, _) -> #(
+        Model(..model, auth: LoggedOut("", password, option.Some("Please enter your name."))),
+        effect.none(),
+      )
+      LoggedOut(name, password, _) -> #(
+        Model(..model, auth: LoggingIn(name, password)),
+        do_login(name, password),
+      )
+      _ -> #(model, effect.none())
+    }
 
     ServerRespondedToLogin(Ok(name)) -> {
       local_storage.set(user_key, name)
-      #(
-        Model(
-          ..model,
-          user: option.Some(name),
-          login_loading: False,
-          login_error: option.None,
-        ),
-        effect.none(),
-      )
+      #(Model(..model, auth: LoggedIn(name)), effect.none())
     }
 
-    ServerRespondedToLogin(Error(_)) -> #(
-      Model(
-        ..model,
-        login_loading: False,
-        login_error: option.Some("Wrong password."),
-      ),
-      effect.none(),
-    )
+    ServerRespondedToLogin(Error(_)) -> case model.auth {
+      LoggingIn(name, password) -> #(
+        Model(..model, auth: LoggedOut(name, password, option.Some("Wrong password."))),
+        effect.none(),
+      )
+      _ -> #(model, effect.none())
+    }
 
     UserLoggedOut -> {
       local_storage.remove(user_key)
-      #(
-        Model(..model, user: option.None, login_name: "", login_password: ""),
-        effect.none(),
-      )
+      #(Model(..model, auth: LoggedOut("", "", option.None)), effect.none())
     }
   }
 }
@@ -152,19 +139,30 @@ fn do_login(name: String, password: String) -> Effect(Msg) {
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  case model.user {
-    option.None ->
+  case model.auth {
+    LoggedOut(name, password, error) ->
       login.view(
-        model.login_name,
-        model.login_password,
-        model.login_error,
-        model.login_loading,
+        name,
+        password,
+        error,
+        False,
         UserTypedLoginName,
         UserTypedLoginPassword,
         UserSubmittedLogin,
       )
 
-    option.Some(_) ->
+    LoggingIn(name, password) ->
+      login.view(
+        name,
+        password,
+        option.None,
+        True,
+        UserTypedLoginName,
+        UserTypedLoginPassword,
+        UserSubmittedLogin,
+      )
+
+    LoggedIn(_) ->
       html.div([], [
         html.nav([attribute.class("nav")], [
           html.a(
@@ -184,7 +182,6 @@ fn view(model: Model) -> Element(Msg) {
 fn view_page(route: Route) -> Element(Msg) {
   case route {
     router.Home -> home.view()
-    router.Login -> home.view()
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
     router.SwordFighting -> sword_fighting.view()
@@ -192,7 +189,6 @@ fn view_page(route: Route) -> Element(Msg) {
     router.Market -> market.view()
     router.Performances -> performances.view()
     router.Potluck -> potluck.view()
-    router.Donations -> donations.view()
     router.PotionQuiz -> potion_quiz.view()
     router.Archery -> archery.view()
     router.HobbyHorseRaces -> hobby_horse_races.view()

@@ -3,7 +3,6 @@ import lustre/attribute.{type Attribute}
 
 pub type Route {
   Home
-  Login
   Riddles
   ScavengerHunt
   SwordFighting
@@ -11,7 +10,6 @@ pub type Route {
   Market
   Performances
   Potluck
-  Donations
   PotionQuiz
   Archery
   HobbyHorseRaces
@@ -24,7 +22,6 @@ pub type Route {
 pub fn parse_route(uri: Uri) -> Route {
   case uri.path_segments(uri.path) {
     [] | [""] -> Home
-    ["login"] -> Login
     ["riddles"] -> Riddles
     ["scavenger-hunt"] -> ScavengerHunt
     ["sword-fighting"] -> SwordFighting
@@ -32,7 +29,6 @@ pub fn parse_route(uri: Uri) -> Route {
     ["market"] -> Market
     ["performances"] -> Performances
     ["potluck"] -> Potluck
-    ["donations"] -> Donations
     ["potion-quiz"] -> PotionQuiz
     ["archery"] -> Archery
     ["hobby-horse"] -> HobbyHorseRaces
@@ -46,7 +42,6 @@ pub fn parse_route(uri: Uri) -> Route {
 pub fn href(route: Route) -> Attribute(msg) {
   let path = case route {
     Home -> "/"
-    Login -> "/login"
     Riddles -> "/riddles"
     ScavengerHunt -> "/scavenger-hunt"
     SwordFighting -> "/sword-fighting"
@@ -54,7 +49,6 @@ pub fn href(route: Route) -> Attribute(msg) {
     Market -> "/market"
     Performances -> "/performances"
     Potluck -> "/potluck"
-    Donations -> "/donations"
     PotionQuiz -> "/potion-quiz"
     Archery -> "/archery"
     HobbyHorseRaces -> "/hobby-horse"

@@ -96,6 +96,30 @@
     min-block-size: 100dvh;
   }
 
+  body::before {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 100vmax;
+    height: 100vmax;
+    transform: translate(-50%, -50%) rotate(90deg);
+    background-image: url("/static/assymetric-flower.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body::before {
+      filter: invert(1);
+      opacity: 0.1;
+    }
+  }
+
   h1,
   h2,
   h3 {
@@ -104,6 +128,10 @@
     line-height: var(--font-lineheight-1);
     letter-spacing: var(--font-letterspacing-3);
   }
+
+  h1 { font-size: var(--font-size-7); }
+  h2 { font-size: var(--font-size-5); }
+  h3 { font-size: var(--font-size-4); }
 
   a {
     color: var(--color-primary);
@@ -116,7 +144,7 @@
 
   button {
     cursor: pointer;
-    background-color: var(--color-primary);
+    background-color: var(--scarlet-3);
     color: var(--parchment-6);
     border: none;
     border-radius: var(--radius-2);
@@ -127,7 +155,7 @@
   }
 
   button:hover {
-    background-color: var(--color-primary-hover);
+    background-color: var(--scarlet-2);
   }
 
   input {
@@ -151,6 +179,19 @@
    ============================================================ */
 
 @layer components {
+  .page {
+    width: 720px;
+    margin-inline: auto;
+    padding-inline: var(--size-5);
+    padding-block-start: var(--size-8);
+  }
+
+  @media (width < 720px) {
+    .page {
+      width: 100%;
+    }
+  }
+
   .nav {
     display: flex;
     align-items: center;
@@ -177,6 +218,52 @@
     font-size: var(--font-size-1);
     padding-block: var(--size-1);
     padding-inline: var(--size-3);
+  }
+
+  .nav-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--size-3);
+    margin-block-start: var(--size-3);
+  }
+
+  .nav-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-block-size: var(--size-8);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-3);
+    background-color: var(--scarlet-3);
+    color: var(--parchment-6);
+    border-radius: var(--radius-2);
+    text-decoration: none;
+    font-weight: var(--font-weight-6);
+    text-align: center;
+    transition: background-color var(--transition-fast-2);
+  }
+
+  .nav-button::before,
+  .nav-button::after {
+    content: "";
+    display: block;
+    width: 48px;
+    height: 34px;
+    background-color: var(--color-accent);
+    mask-image: url("/static/tulip-sprig.svg");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    mask-position: center;
+    flex-shrink: 0;
+  }
+
+  .nav-button::after {
+    transform: scaleX(-1);
+  }
+
+  .nav-button:hover {
+    background-color: var(--scarlet-2);
+    color: var(--parchment-6);
   }
 }
 

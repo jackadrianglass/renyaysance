@@ -1,0 +1,3 @@
+**/build
+**/dist
+backend/priv/static/frontend.js
