@@ -55,6 +55,7 @@ type Model {
     archery: archery.Model,
     jousting: jousting.Model,
     costume_voting: costume_voting.Model,
+    hobby_horse_races: hobby_horse_races.Model,
   )
 }
 
@@ -68,6 +69,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     option.None -> LoggedOut("", "", option.None)
   }
   let #(voting_model, voting_effect) = costume_voting.init()
+  let #(jousting_model, jousting_effect) = jousting.init()
   #(
     Model(
       route:,
@@ -75,13 +77,15 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       leaderboard: [],
       potion_quiz: potion_quiz.init(),
       archery: archery.init(),
-      jousting: jousting.init(),
+      jousting: jousting_model,
       costume_voting: voting_model,
+      hobby_horse_races: hobby_horse_races.init(),
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
       fetch_leaderboard(),
       effect.map(voting_effect, CostumeVotingMsg),
+      effect.map(jousting_effect, JoustingMsg),
     ]),
   )
 }
@@ -101,6 +105,7 @@ type Msg {
   ArcheryMsg(archery.Msg)
   JoustingMsg(jousting.Msg)
   CostumeVotingMsg(costume_voting.Msg)
+  HobbyHorseRacesMsg(hobby_horse_races.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -213,6 +218,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         effect.map(sub_effect, CostumeVotingMsg),
       )
     }
+
+    HobbyHorseRacesMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        hobby_horse_races.update(model.hobby_horse_races, sub_msg, handle)
+      #(
+        Model(..model, hobby_horse_races: sub_model),
+        effect.map(sub_effect, HobbyHorseRacesMsg),
+      )
+    }
   }
 }
 
@@ -302,7 +317,11 @@ fn view_page(model: Model) -> Element(Msg) {
     router.PotionQuiz ->
       element.map(potion_quiz.view(model.potion_quiz), PotionQuizMsg)
     router.Archery -> element.map(archery.view(model.archery), ArcheryMsg)
-    router.Jousting -> element.map(jousting.view(model.jousting), JoustingMsg)
+    router.Jousting ->
+      element.map(
+        jousting.view(model.jousting, get_handle(model.auth)),
+        JoustingMsg,
+      )
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
     router.SwordFighting -> sword_fighting.view()
@@ -310,7 +329,11 @@ fn view_page(model: Model) -> Element(Msg) {
     router.Market -> market.view()
     router.Performances -> performances.view()
     router.Potluck -> potluck.view()
-    router.HobbyHorseRaces -> hobby_horse_races.view()
+    router.HobbyHorseRaces ->
+      element.map(
+        hobby_horse_races.view(model.hobby_horse_races),
+        HobbyHorseRacesMsg,
+      )
     router.CostumeVoting ->
       element.map(
         costume_voting.view(model.costume_voting),

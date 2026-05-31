@@ -5,6 +5,7 @@ import gleam/http.{Get, Post}
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/option
 import lustre/attribute
 import lustre/element
 import lustre/element/html
@@ -16,6 +17,9 @@ import wisp/wisp_mist
 
 // Change this to your party password before deploying.
 const party_password = "renaissance"
+
+// Change this to the host's handle (the account that can generate the bracket).
+const host_handle = "Jack"
 
 pub fn main() {
   wisp.configure_logger()
@@ -89,6 +93,11 @@ fn handle_request(
     Get, ["api", "events"] -> handle_get_events()
     Post, ["api", "events", event_id, "result"] ->
       handle_submit_result(s, event_id, req)
+    Get, ["api", "jousting", "state"] -> handle_get_jousting_state(s)
+    Post, ["api", "jousting", "signup"] -> handle_jousting_signup(s, req)
+    Post, ["api", "jousting", "generate"] -> handle_jousting_generate(s, req)
+    Post, ["api", "jousting", "match-result"] ->
+      handle_jousting_match_result(s, req)
     Post, ["api", "vote"] -> handle_vote(s, req)
     Get, ["api", "leaderboard"] -> handle_get_leaderboard(s)
     Get, _ -> serve_index()
@@ -229,6 +238,81 @@ fn handle_get_leaderboard(s: store.Store) -> Response {
   |> wisp.json_response(200)
 }
 
+fn handle_get_jousting_state(s: store.Store) -> Response {
+  store.encode_bracket_state_to_string(store.get_bracket_state(s))
+  |> wisp.json_response(200)
+}
+
+fn handle_jousting_signup(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, handle_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(handle) -> {
+      store.jousting_signup(s, handle)
+      store.encode_bracket_state_to_string(store.get_bracket_state(s))
+      |> wisp.json_response(200)
+    }
+  }
+}
+
+fn handle_jousting_generate(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, handle_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(handle) ->
+      case handle == host_handle {
+        False -> wisp.response(403)
+        True ->
+          store.encode_bracket_state_to_string(store.jousting_generate(s))
+          |> wisp.json_response(200)
+      }
+  }
+}
+
+fn handle_jousting_match_result(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, match_result_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(#(handle, won)) -> {
+      let new_state = store.jousting_record_result(s, handle, won)
+      case won {
+        True -> {
+          let wins = count_bracket_wins(new_state, handle)
+          store.upsert_result(
+            s,
+            store.EventResult(
+              handle:,
+              event_id: "jousting",
+              raw: scoring.JoustingRaw(list.repeat(scoring.Win, wins)),
+              points: scoring.score(
+                scoring.JoustingRaw(list.repeat(scoring.Win, wins)),
+              ),
+            ),
+          )
+        }
+        False -> Nil
+      }
+      store.encode_bracket_state_to_string(new_state)
+      |> wisp.json_response(200)
+    }
+  }
+}
+
+fn count_bracket_wins(state: store.BracketState, handle: String) -> Int {
+  case state {
+    store.SignupPhase(_) -> 0
+    store.ActivePhase(rounds) ->
+      list.fold(rounds, 0, fn(acc, round) {
+        list.fold(round, acc, fn(inner, m) {
+          case m.winner == option.Some(handle) {
+            True -> inner + 1
+            False -> inner
+          }
+        })
+      })
+  }
+}
+
 // REQUEST DECODERS ------------------------------------------------------------
 
 type LoginRequest {
@@ -249,6 +333,17 @@ fn submit_result_decoder() -> decode.Decoder(SubmitResultRequest) {
   use handle <- decode.field("handle", decode.string)
   use raw <- decode.field("raw", scoring.raw_input_decoder())
   decode.success(SubmitResultRequest(handle:, raw:))
+}
+
+fn handle_decoder() -> decode.Decoder(String) {
+  use handle <- decode.field("handle", decode.string)
+  decode.success(handle)
+}
+
+fn match_result_decoder() -> decode.Decoder(#(String, Bool)) {
+  use handle <- decode.field("handle", decode.string)
+  use won <- decode.field("won", decode.bool)
+  decode.success(#(handle, won))
 }
 
 type VoteRequest {

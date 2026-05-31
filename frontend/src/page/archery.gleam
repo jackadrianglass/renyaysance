@@ -23,26 +23,31 @@ pub type Model {
 }
 
 pub fn init() -> Model {
-  Model(shots: [], saved: False)
+  Model(shots: [Missed], saved: False)
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 pub type Msg {
-  AddShot(Zone)
-  RemoveLast
+  AddShot
+  SetShot(Int, Zone)
+  RemoveShot(Int)
   Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    AddShot(zone) -> #(
-      Model(shots: list.append(model.shots, [zone]), saved: False),
+    AddShot -> #(
+      Model(shots: list.append(model.shots, [Missed]), saved: False),
       effect.none(),
     )
-    RemoveLast -> #(
-      Model(shots: drop_last(model.shots), saved: False),
+    SetShot(index, zone) -> #(
+      Model(shots: set_at(model.shots, index, zone), saved: model.saved),
+      effect.none(),
+    )
+    RemoveShot(index) -> #(
+      Model(shots: remove_at(model.shots, index), saved: False),
       effect.none(),
     )
     Submit -> #(model, do_submit(handle, model.shots))
@@ -50,8 +55,17 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   }
 }
 
-fn drop_last(lst: List(a)) -> List(a) {
-  lst |> list.reverse |> list.drop(1) |> list.reverse
+fn set_at(lst: List(a), target: Int, value: a) -> List(a) {
+  list.index_map(lst, fn(item, i) {
+    case i == target {
+      True -> value
+      False -> item
+    }
+  })
+}
+
+fn remove_at(lst: List(a), index: Int) -> List(a) {
+  list.flatten([list.take(lst, index), list.drop(lst, index + 1)])
 }
 
 fn do_submit(handle: String, shots: List(Zone)) -> Effect(Msg) {
@@ -94,20 +108,15 @@ fn result_is_ok(r: Result(a, b)) -> Bool {
 pub fn view(model: Model) -> Element(Msg) {
   layout.page("Archery", [
     html.p([], [html.text("Loose your arrows and claim your score.")]),
-    view_shots(model.shots),
+    html.div(
+      [attribute.class("attempts")],
+      list.index_map(model.shots, view_row),
+    ),
+    html.button([attribute.class("attempt-add"), event.on_click(AddShot)], [
+      html.text("+"),
+    ]),
     html.p([], [
       html.text("Score: " <> int.to_string(compute_score(model.shots)) <> " pts"),
-    ]),
-    html.div([attribute.class("attempt-buttons")], [
-      html.button([event.on_click(AddShot(Missed))], [html.text("Missed")]),
-      html.button([event.on_click(AddShot(OuterRing))], [
-        html.text("Outer Ring"),
-      ]),
-      html.button([event.on_click(AddShot(InnerRing))], [
-        html.text("Inner Ring"),
-      ]),
-      html.button([event.on_click(AddShot(Bullseye))], [html.text("Bullseye")]),
-      html.button([event.on_click(RemoveLast)], [html.text("Undo")]),
     ]),
     case model.saved {
       True ->
@@ -118,23 +127,44 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn view_shots(shots: List(Zone)) -> Element(msg) {
-  case shots {
-    [] -> html.p([], [html.text("No shots yet.")])
-    _ ->
-      html.div(
-        [attribute.class("attempts")],
-        list.map(shots, fn(zone) {
-          let #(label, cls) = case zone {
-            Missed -> #("M", "attempt attempt--missed")
-            OuterRing -> #("O", "attempt attempt--outer")
-            InnerRing -> #("I", "attempt attempt--inner")
-            Bullseye -> #("B", "attempt attempt--bullseye")
-          }
-          html.span([attribute.class(cls)], [html.text(label)])
-        }),
-      )
+fn view_row(zone: Zone, index: Int) -> Element(Msg) {
+  let row_cls = case zone {
+    Missed -> "attempt-row attempt-row--missed"
+    OuterRing -> "attempt-row attempt-row--outer"
+    InnerRing -> "attempt-row attempt-row--inner"
+    Bullseye -> "attempt-row attempt-row--bullseye"
   }
+  html.div([attribute.class(row_cls)], [
+    html.span([attribute.class("attempt-num")], [
+      html.text(int.to_string(index + 1)),
+    ]),
+    html.div([attribute.class("attempt-zones")], [
+      view_zone_btn(index, zone, Missed, "Missed"),
+      view_zone_btn(index, zone, OuterRing, "Outer Ring"),
+      view_zone_btn(index, zone, InnerRing, "Inner Ring"),
+      view_zone_btn(index, zone, Bullseye, "Bullseye"),
+    ]),
+    html.button(
+      [attribute.class("attempt-remove"), event.on_click(RemoveShot(index))],
+      [html.text("✕")],
+    ),
+  ])
+}
+
+fn view_zone_btn(
+  index: Int,
+  current: Zone,
+  zone: Zone,
+  label: String,
+) -> Element(Msg) {
+  let cls = case current == zone {
+    True -> "attempt-btn selected"
+    False -> "attempt-btn"
+  }
+  html.button(
+    [attribute.class(cls), event.on_click(SetShot(index, zone))],
+    [html.text(label)],
+  )
 }
 
 fn compute_score(shots: List(Zone)) -> Int {
