@@ -10,9 +10,36 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
   layout.page("Rennyaysance", [
     html.p([], [html.text("Welcome to the party!")]),
     html.p([], [html.text("TODO: Fill out information for donation taking")]),
-    html.h1([], [html.text("Leaderboard")]),
+    html.h1([], [html.text("Events")]),
+    html.h2([], [html.text("Performance Lineup")]),
+    html.dl([attribute.class("lineup")], [
+      html.div([attribute.class("lineup-slot")], [
+        html.dt([], [html.text("4:00 PM")]),
+        html.dd([], [html.text("Jack & Haley")]),
+        html.dd([], [html.text("Jacob & Jacob")]),
+        html.dd([], [html.text("Arrol")]),
+      ]),
+      html.div([attribute.class("lineup-slot")], [
+        html.dt([], [html.text("6:00 PM")]),
+        html.dd([], [html.text("Cass")]),
+        html.dd([], [html.text("Moe")]),
+        html.dd([], [html.text("Alysse")]),
+        html.dd([], [html.text("Nicole & Tess")]),
+      ]),
+      html.div([attribute.class("lineup-slot")], [
+        html.dt([], [html.text("8:00 PM")]),
+        html.dd([], [html.text("Izzy & Jack")]),
+        html.dd([], [html.text("Arrol")]),
+      ]),
+    ]),
+    html.h2([], [html.text("Market")]),
+    html.p([], [html.text("TODO: List vendors, stall locations, and what's for sale.")]),
+    html.h2([], [html.text("Potluck")]),
+    html.p([], [html.text("TODO: List who's bringing what and any dietary notes.")]),
+    html.h1([], [html.text("Competion of Champions")]),
+    html.h2([], [html.text("Leaderboard")]),
     view_leaderboard(leaderboard),
-    html.h1([], [html.text("Main Quests")]),
+    html.h2([], [html.text("Main Quests")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.PotionQuiz, "Potion Quiz"),
       layout.nav_button(router.Archery, "Archery"),
@@ -20,13 +47,7 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
       layout.nav_button(router.Jousting, "King's Court Jousting"),
       layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),
-    html.h1([], [html.text("Events")]),
-    html.div([attribute.class("nav-grid")], [
-      layout.nav_button(router.Market, "Market"),
-      layout.nav_button(router.Performances, "Performance Lineup"),
-      layout.nav_button(router.Potluck, "Potluck"),
-    ]),
-    html.h1([], [html.text("Side Quests")]),
+    html.h2([], [html.text("Side Quests")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.Riddles, "Riddles"),
       layout.nav_button(router.ScavengerHunt, "Scavenger Hunt"),

@@ -42,7 +42,7 @@
     --color-border: var(--parchment-4);
 
     /* Typography */
-    --font-display: "Jacquard 24", serif;
+    --font-display: "MedievalSharp", serif;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -264,6 +264,41 @@
   .nav-button:hover {
     background-color: var(--scarlet-2);
     color: var(--parchment-6);
+  }
+
+  .lineup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-5);
+    margin-block: var(--size-3);
+    padding: 0;
+  }
+
+  .lineup dt {
+    font-family: var(--font-display);
+    font-size: var(--font-size-4);
+    color: var(--color-accent);
+    letter-spacing: var(--font-letterspacing-2);
+    border-block-end: 1px solid var(--color-border);
+    padding-block-end: var(--size-1);
+    margin-block-end: var(--size-2);
+  }
+
+  .lineup dd {
+    margin-inline-start: 0;
+    padding-block: var(--size-1);
+    padding-inline-start: var(--size-5);
+    position: relative;
+  }
+
+  .lineup dd::before {
+    content: "⚜";
+    position: absolute;
+    inset-inline-start: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-0);
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   .potions {

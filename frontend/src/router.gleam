@@ -8,9 +8,6 @@ pub type Route {
   ScavengerHunt
   SwordFighting
   MysticArts
-  Market
-  Performances
-  Potluck
   PotionQuiz
   Archery
   HobbyHorseRaces
@@ -27,9 +24,6 @@ pub fn parse_route(uri: Uri) -> Route {
     ["scavenger-hunt"] -> ScavengerHunt
     ["sword-fighting"] -> SwordFighting
     ["mystic-arts"] -> MysticArts
-    ["market"] -> Market
-    ["performances"] -> Performances
-    ["potluck"] -> Potluck
     ["potion-quiz"] -> PotionQuiz
     ["archery"] -> Archery
     ["hobby-horse"] -> HobbyHorseRaces
@@ -47,9 +41,6 @@ pub fn href(route: Route) -> Attribute(msg) {
     ScavengerHunt -> "/scavenger-hunt"
     SwordFighting -> "/sword-fighting"
     MysticArts -> "/mystic-arts"
-    Market -> "/market"
-    Performances -> "/performances"
-    Potluck -> "/potluck"
     PotionQuiz -> "/potion-quiz"
     Archery -> "/archery"
     HobbyHorseRaces -> "/hobby-horse"

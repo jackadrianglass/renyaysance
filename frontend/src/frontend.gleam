@@ -16,11 +16,8 @@ import page/hobby_horse_races
 import page/home
 import page/jousting
 import page/login
-import page/market
 import page/mystic_arts
 import page/not_found
-import page/performances
-import page/potluck
 import page/potion_quiz
 import page/riddles
 import page/scavenger_hunt
@@ -326,9 +323,6 @@ fn view_page(model: Model) -> Element(Msg) {
     router.ScavengerHunt -> scavenger_hunt.view()
     router.SwordFighting -> sword_fighting.view()
     router.MysticArts -> mystic_arts.view()
-    router.Market -> market.view()
-    router.Performances -> performances.view()
-    router.Potluck -> potluck.view()
     router.HobbyHorseRaces ->
       element.map(
         hobby_horse_races.view(model.hobby_horse_races),

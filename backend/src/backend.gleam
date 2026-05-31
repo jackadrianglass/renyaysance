@@ -127,7 +127,7 @@ fn serve_index() -> Response {
         html.link([
           attribute.attribute("rel", "stylesheet"),
           attribute.href(
-            "https://fonts.googleapis.com/css2?family=Jacquard+24&display=swap",
+            "https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap",
           ),
         ]),
         html.link([
