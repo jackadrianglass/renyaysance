@@ -36,7 +36,7 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
     html.p([], [html.text("TODO: List vendors, stall locations, and what's for sale.")]),
     html.h2([], [html.text("Potluck")]),
     html.p([], [html.text("TODO: List who's bringing what and any dietary notes.")]),
-    html.h1([], [html.text("Competion of Champions")]),
+    html.h1([], [html.text("Contest of Champions")]),
     html.h2([], [html.text("Leaderboard")]),
     view_leaderboard(leaderboard),
     html.h2([], [html.text("Main Quests")]),
@@ -61,6 +61,7 @@ fn view_leaderboard(leaderboard: List(#(String, Int))) -> Element(msg) {
   case leaderboard {
     [] -> html.p([], [html.text("No scores yet.")])
     _ ->
+      html.div([attribute.class("leaderboard-wrap")], [
       html.table([attribute.class("leaderboard")], [
         html.thead([], [
           html.tr([], [
@@ -84,6 +85,6 @@ fn view_leaderboard(leaderboard: List(#(String, Int))) -> Element(msg) {
             })
           list.reverse(rows)
         }),
-      ])
+      ])])
   }
 }

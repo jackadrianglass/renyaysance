@@ -129,9 +129,9 @@
     letter-spacing: var(--font-letterspacing-3);
   }
 
-  h1 { font-size: var(--font-size-7); }
-  h2 { font-size: var(--font-size-5); }
-  h3 { font-size: var(--font-size-4); }
+  h1 { font-size: var(--font-size-7); margin-block-start: var(--size-8); }
+  h2 { font-size: var(--font-size-5); margin-block-start: var(--size-6); }
+  h3 { font-size: var(--font-size-4); margin-block-start: var(--size-5); }
 
   a {
     color: var(--color-primary);
@@ -264,6 +264,70 @@
   .nav-button:hover {
     background-color: var(--scarlet-2);
     color: var(--parchment-6);
+  }
+
+  .leaderboard-wrap {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-block-start: 3px solid var(--color-primary);
+    border-radius: var(--radius-2);
+    margin-block: var(--size-3);
+  }
+
+  .leaderboard {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--color-bg-surface);
+  }
+
+  .leaderboard thead tr {
+    background-color: var(--scarlet-3);
+  }
+
+  .leaderboard th {
+    font-family: var(--font-display);
+    letter-spacing: var(--font-letterspacing-2);
+    font-weight: var(--font-weight-4);
+    color: var(--gold-4);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-4);
+    text-align: start;
+  }
+
+  .leaderboard th:first-child {
+    text-align: center;
+    width: 3.5rem;
+  }
+
+  .leaderboard td {
+    padding-block: var(--size-2);
+    padding-inline: var(--size-4);
+    border-block-end: 1px solid var(--color-border);
+  }
+
+  .leaderboard tbody tr:last-child td {
+    border-block-end: none;
+  }
+
+  .leaderboard tbody tr:nth-child(even) td {
+    background-color: color-mix(in srgb, var(--color-bg-surface) 40%, var(--color-bg));
+  }
+
+  .leaderboard td:first-child {
+    font-family: var(--font-display);
+    font-size: var(--font-size-3);
+    color: var(--color-accent);
+    text-align: center;
+  }
+
+  .leaderboard tbody tr:nth-child(1) td:first-child { color: var(--gold-5); }
+  .leaderboard tbody tr:nth-child(2) td:first-child { color: var(--parchment-5); }
+  .leaderboard tbody tr:nth-child(3) td:first-child { color: var(--parchment-4); }
+
+  .leaderboard td:last-child {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-1);
+    font-variant-numeric: tabular-nums;
   }
 
   .lineup {
