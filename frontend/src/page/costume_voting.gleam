@@ -1,13 +1,13 @@
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
+import gleam/string
 import gleam/option.{type Option}
 import layout
 import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
 import rsvp
 
 // MODEL -----------------------------------------------------------------------
@@ -31,7 +31,10 @@ pub type Msg {
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
     UsersFetched(Ok(users)) -> {
-      let candidates = list.filter(users, fn(u) { u != handle })
+      let candidates =
+        users
+        |> list.filter(fn(u) { u != handle })
+        |> list.sort(string.compare)
       #(Model(..model, candidates:), effect.none())
     }
     UsersFetched(Error(_)) -> #(model, effect.none())
@@ -77,18 +80,12 @@ pub fn view(model: Model) -> Element(Msg) {
       [] -> html.p([], [html.text("No other players yet.")])
       _ ->
         html.div(
-          [attribute.class("vote-candidates")],
+          [attribute.class("nav-grid")],
           list.map(model.candidates, fn(candidate) {
-            let selected = model.selected == option.Some(candidate)
-            html.button(
-              [
-                event.on_click(UserVoted(candidate)),
-                attribute.class(case selected {
-                  True -> "vote-candidate vote-candidate--selected"
-                  False -> "vote-candidate"
-                }),
-              ],
-              [html.text(candidate)],
+            layout.action_button(
+              on_click: UserVoted(candidate),
+              label: candidate,
+              selected: model.selected == option.Some(candidate),
             )
           }),
         )

@@ -20,6 +20,10 @@ const jousting_points_per_win = 10
 
 const jousting_win_cap = 6
 
+const sword_fighting_points_per_win = 10
+
+const hobby_horse_points_per_win = 10
+
 // Indexed by rank: index 0 = 1st place, index 1 = 2nd place, etc.
 const voting_rank_points = [25, 15, 10, 5, 1]
 
@@ -42,11 +46,18 @@ pub type JoustingRound {
   Loss
 }
 
+pub type Bout {
+  BoutWon
+  BoutLost
+}
+
 pub type RawInput {
   PotionRaw(List(PotionGuess))
   ArcheryRaw(List(ArcheryShot))
   JoustingRaw(List(JoustingRound))
   VotingRaw(voters: List(String))
+  HobbyHorseRaw(List(Bout))
+  SwordFightingRaw(List(Bout))
 }
 
 pub type Event {
@@ -60,6 +71,8 @@ pub fn events() -> List(Event) {
     Event("potion", "Potion Guessing"),
     Event("archery", "Archery"),
     Event("jousting", "Jousting"),
+    Event("sword-fighting", "Sword Fighting"),
+    Event("hobby-horse", "Hobby Horse Races"),
     Event("voting", "Voting"),
   ]
 }
@@ -71,6 +84,8 @@ pub fn score(raw: RawInput) -> Int {
     PotionRaw(guesses) -> score_potion(guesses)
     ArcheryRaw(shots) -> score_archery(shots)
     JoustingRaw(rounds) -> score_jousting(rounds)
+    HobbyHorseRaw(bouts) -> score_bouts(bouts, hobby_horse_points_per_win)
+    SwordFightingRaw(bouts) -> score_bouts(bouts, sword_fighting_points_per_win)
     VotingRaw(_) -> 0
   }
 }
@@ -98,6 +113,15 @@ fn score_archery(shots: List(ArcheryShot)) -> Int {
       OuterRing -> archery_outer_ring_points
       InnerRing -> archery_inner_ring_points
       Bullseye -> archery_bullseye_points
+    }
+  })
+}
+
+fn score_bouts(bouts: List(Bout), points_per_win: Int) -> Int {
+  list.fold(bouts, 0, fn(acc, bout) {
+    case bout {
+      BoutWon -> acc + points_per_win
+      BoutLost -> acc
     }
   })
 }
@@ -132,11 +156,28 @@ pub fn encode_raw_input(raw: RawInput) -> json.Json {
         #("type", json.string("jousting")),
         #("rounds", json.array(rounds, encode_jousting_round)),
       ])
+    HobbyHorseRaw(bouts) ->
+      json.object([
+        #("type", json.string("hobby_horse")),
+        #("races", json.array(bouts, encode_bout)),
+      ])
+    SwordFightingRaw(bouts) ->
+      json.object([
+        #("type", json.string("sword_fighting")),
+        #("bouts", json.array(bouts, encode_bout)),
+      ])
     VotingRaw(voters) ->
       json.object([
         #("type", json.string("voting")),
         #("voters", json.array(voters, json.string)),
       ])
+  }
+}
+
+fn encode_bout(bout: Bout) -> json.Json {
+  case bout {
+    BoutWon -> json.string("won")
+    BoutLost -> json.string("lost")
   }
 }
 
@@ -186,11 +227,27 @@ pub fn raw_input_decoder() -> decode.Decoder(RawInput) {
       )
       decode.success(JoustingRaw(rounds))
     }
+    "hobby_horse" -> {
+      use races <- decode.field("races", decode.list(bout_decoder()))
+      decode.success(HobbyHorseRaw(races))
+    }
+    "sword_fighting" -> {
+      use bouts <- decode.field("bouts", decode.list(bout_decoder()))
+      decode.success(SwordFightingRaw(bouts))
+    }
     "voting" -> {
       use voters <- decode.field("voters", decode.list(decode.string))
       decode.success(VotingRaw(voters))
     }
     _ -> decode.failure(PotionRaw([]), "RawInput")
+  }
+}
+
+fn bout_decoder() -> decode.Decoder(Bout) {
+  use str <- decode.then(decode.string)
+  case str {
+    "won" -> decode.success(BoutWon)
+    _ -> decode.success(BoutLost)
   }
 }
 

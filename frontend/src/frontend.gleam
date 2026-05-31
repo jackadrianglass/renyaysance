@@ -53,6 +53,7 @@ type Model {
     jousting: jousting.Model,
     costume_voting: costume_voting.Model,
     hobby_horse_races: hobby_horse_races.Model,
+    sword_fighting: sword_fighting.Model,
   )
 }
 
@@ -77,6 +78,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       jousting: jousting_model,
       costume_voting: voting_model,
       hobby_horse_races: hobby_horse_races.init(),
+      sword_fighting: sword_fighting.init(),
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
@@ -103,6 +105,7 @@ type Msg {
   JoustingMsg(jousting.Msg)
   CostumeVotingMsg(costume_voting.Msg)
   HobbyHorseRacesMsg(hobby_horse_races.Msg)
+  SwordFightingMsg(sword_fighting.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -225,6 +228,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         effect.map(sub_effect, HobbyHorseRacesMsg),
       )
     }
+
+    SwordFightingMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        sword_fighting.update(model.sword_fighting, sub_msg, handle)
+      #(
+        Model(..model, sword_fighting: sub_model),
+        effect.map(sub_effect, SwordFightingMsg),
+      )
+    }
   }
 }
 
@@ -321,7 +334,8 @@ fn view_page(model: Model) -> Element(Msg) {
       )
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
-    router.SwordFighting -> sword_fighting.view()
+    router.SwordFighting ->
+      element.map(sword_fighting.view(model.sword_fighting), SwordFightingMsg)
     router.MysticArts -> mystic_arts.view()
     router.HobbyHorseRaces ->
       element.map(
