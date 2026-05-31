@@ -184,6 +184,21 @@
     margin-inline: auto;
     padding-inline: var(--size-5);
     padding-block-start: var(--size-8);
+    padding-block-end: var(--size-10);
+  }
+
+  .page::after {
+    content: "";
+    display: block;
+    width: 96px;
+    height: 96px;
+    margin-inline: auto;
+    margin-block-start: var(--size-10);
+    background-color: var(--color-accent);
+    mask-image: url("/static/assymetric-flower.svg");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    mask-position: center;
   }
 
   @media (width < 720px) {
