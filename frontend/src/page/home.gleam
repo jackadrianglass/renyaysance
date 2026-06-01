@@ -10,20 +10,19 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
   layout.page("Contest of Champions", [
     html.h2([], [html.text("Leaderboard")]),
     view_leaderboard(leaderboard),
-    html.h2([], [html.text("Main Quests")]),
+    html.h2([], [html.text("Tournament")]),
     html.div([attribute.class("nav-grid")], [
-      layout.nav_button(router.PotionQuiz, "Potion Quiz"),
       layout.nav_button(router.Archery, "Archery"),
-      layout.nav_button(router.HobbyHorseRaces, "Hobby Horse Races"),
-      layout.nav_button(router.SwordFighting, "Sword Fighting"),
+      layout.nav_button(router.HobbyHorseRaces, "Hobby Horsing"),
+      layout.nav_button(router.PotionQuiz, "Potion"),
       layout.nav_button(router.Jousting, "King's Court Jousting"),
-      layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),
-    html.h2([], [html.text("Side Quests")]),
+    html.h2([], [html.text("Quests")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.Riddles, "Riddles"),
+      layout.nav_button(router.SwordFighting, "Sword Fighting"),
       layout.nav_button(router.ScavengerHunt, "Scavenger Hunt"),
-      layout.nav_button(router.MysticArts, "Mystic Arts"),
+      layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),
   ])
 }

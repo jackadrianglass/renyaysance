@@ -7,7 +7,7 @@ pub fn view() -> Element(msg) {
   layout.page("Welcome to the party!", [
     html.h2([], [html.text("Basics")]),
     html.p([], [html.text("2033 28 St SE Calgary")]),
-    html.p([], [html.text("Show up by 2 p.m.")]),
+    html.p([], [html.text("Event starts at 2 p.m.")]),
     html.p([attribute.class("dress-code")], [html.text("Dress up! Anything from the renaissance!")]),
     html.h2([], [html.text("Donations")]),
     html.p([], [
