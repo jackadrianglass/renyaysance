@@ -10,6 +10,9 @@ import lustre/element.{type Element}
 import lustre/element/html
 import rsvp
 
+// todo: add a search feature for voting
+// todo: percentage of who's got the most points
+
 // MODEL -----------------------------------------------------------------------
 
 pub type Model {

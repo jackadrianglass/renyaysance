@@ -351,6 +351,18 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .dress-code {
+    margin-block: var(--size-4);
+    padding-block: var(--size-3);
+    padding-inline: var(--size-5);
+    border-block: 2px solid var(--color-accent);
+    text-align: center;
+    font-size: var(--font-size-3);
+    font-weight: var(--font-weight-7);
+    font-style: italic;
+    color: var(--color-primary);
+  }
+
   .lineup {
     display: flex;
     flex-direction: column;
@@ -384,6 +396,63 @@
     font-size: var(--font-size-0);
     top: 50%;
     transform: translateY(-50%);
+  }
+
+  .lineup-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-block-start: 3px solid var(--color-primary);
+    border-radius: var(--radius-2);
+    margin-block: var(--size-3);
+  }
+
+  .lineup-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--color-bg-surface);
+  }
+
+  .lineup-table thead tr {
+    background-color: var(--scarlet-3);
+  }
+
+  .lineup-table th {
+    font-family: var(--font-display);
+    letter-spacing: var(--font-letterspacing-2);
+    font-weight: var(--font-weight-4);
+    color: var(--gold-4);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-3);
+    text-align: start;
+  }
+
+  .lineup-table td {
+    padding-block: var(--size-2);
+    padding-inline: var(--size-3);
+    border: 1px solid var(--color-border);
+    vertical-align: middle;
+    font-size: var(--font-size-1);
+  }
+
+  .lineup-table .lineup-time {
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    text-align: end;
+    font-size: var(--font-size-0);
+    width: 5rem;
+  }
+
+  .lineup-table .lineup-empty {
+    background-color: color-mix(in srgb, var(--color-bg) 70%, var(--color-bg-surface));
+  }
+
+  .lineup-note {
+    display: block;
+    margin-block-start: var(--size-1);
+    font-size: var(--font-size-0);
+    color: var(--color-accent);
+    font-style: italic;
   }
 
   .potions {

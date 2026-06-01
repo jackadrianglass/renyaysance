@@ -10,6 +10,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import modem
+import page/about
 import page/archery
 import page/costume_voting
 import page/hobby_horse_races
@@ -47,6 +48,7 @@ type Model {
   Model(
     route: Route,
     auth: AuthState,
+    viewing_login: Bool,
     leaderboard: List(#(String, Int)),
     potion_quiz: potion_quiz.Model,
     archery: archery.Model,
@@ -72,6 +74,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     Model(
       route:,
       auth:,
+      viewing_login: False,
       leaderboard: [],
       potion_quiz: potion_quiz.init(),
       archery: archery.init(),
@@ -96,6 +99,7 @@ type Msg {
   UserTypedLoginName(String)
   UserTypedLoginPassword(String)
   UserSubmittedLogin
+  UserWantsToLogin
   ServerRespondedToLogin(Result(String, rsvp.Error(String)))
   UserLoggedOut
   FetchLeaderboard
@@ -110,7 +114,12 @@ type Msg {
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    OnRouteChange(route) -> #(Model(..model, route:), effect.none())
+    OnRouteChange(route) -> #(
+      Model(..model, route:, viewing_login: False),
+      effect.none(),
+    )
+
+    UserWantsToLogin -> #(Model(..model, viewing_login: True), effect.none())
 
     UserTypedLoginName(name) ->
       case model.auth {
@@ -169,7 +178,10 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
     UserLoggedOut -> {
       local_storage.remove(user_key)
-      #(Model(..model, auth: LoggedOut("", "", option.None)), effect.none())
+      #(
+        Model(..model, auth: LoggedOut("", "", option.None), viewing_login: False),
+        effect.none(),
+      )
     }
 
     FetchLeaderboard -> #(model, fetch_leaderboard())
@@ -282,28 +294,6 @@ fn schedule_leaderboard_poll() -> Effect(Msg) {
 
 fn view(model: Model) -> Element(Msg) {
   case model.auth {
-    LoggedOut(name, password, error) ->
-      login.view(
-        name,
-        password,
-        error,
-        False,
-        UserTypedLoginName,
-        UserTypedLoginPassword,
-        UserSubmittedLogin,
-      )
-
-    LoggingIn(name, password) ->
-      login.view(
-        name,
-        password,
-        option.None,
-        True,
-        UserTypedLoginName,
-        UserTypedLoginPassword,
-        UserSubmittedLogin,
-      )
-
     LoggedIn(_) ->
       html.div([], [
         html.nav([attribute.class("nav")], [
@@ -318,12 +308,56 @@ fn view(model: Model) -> Element(Msg) {
         ]),
         view_page(model),
       ])
+
+    _ ->
+      case model.viewing_login, model.route {
+        False, router.Home | False, router.About ->
+          html.div([], [
+            html.nav([attribute.class("nav")], [
+              html.a(
+                [router.href(router.Home), attribute.class("nav-brand")],
+                [html.text("Rennyaysance")],
+              ),
+              html.button(
+                [event.on_click(UserWantsToLogin), attribute.class("nav-login")],
+                [html.text("Login")],
+              ),
+            ]),
+            about.view(),
+          ])
+
+        _, _ ->
+          case model.auth {
+            LoggedOut(name, password, error) ->
+              login.view(
+                name,
+                password,
+                error,
+                False,
+                UserTypedLoginName,
+                UserTypedLoginPassword,
+                UserSubmittedLogin,
+              )
+            LoggingIn(name, password) ->
+              login.view(
+                name,
+                password,
+                option.None,
+                True,
+                UserTypedLoginName,
+                UserTypedLoginPassword,
+                UserSubmittedLogin,
+              )
+            LoggedIn(_) -> view_page(model)
+          }
+      }
   }
 }
 
 fn view_page(model: Model) -> Element(Msg) {
   case model.route {
     router.Home -> home.view(model.leaderboard)
+    router.About -> about.view()
     router.PotionQuiz ->
       element.map(potion_quiz.view(model.potion_quiz), PotionQuizMsg)
     router.Archery -> element.map(archery.view(model.archery), ArcheryMsg)
