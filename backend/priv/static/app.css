@@ -410,6 +410,7 @@
     width: 100%;
     border-collapse: collapse;
     background-color: var(--color-bg-surface);
+    table-layout: fixed;
   }
 
   .lineup-table thead tr {
@@ -432,6 +433,7 @@
     border: 1px solid var(--color-border);
     vertical-align: middle;
     font-size: var(--font-size-1);
+    word-break: break-word;
   }
 
   .lineup-table .lineup-time {
@@ -440,7 +442,7 @@
     white-space: nowrap;
     text-align: end;
     font-size: var(--font-size-0);
-    width: 5rem;
+    width: 5.5rem;
   }
 
   .lineup-table .lineup-empty {
@@ -453,6 +455,19 @@
     font-size: var(--font-size-0);
     color: var(--color-accent);
     font-style: italic;
+  }
+
+  @media (width < 520px) {
+    .lineup-table th,
+    .lineup-table td {
+      padding-block: var(--size-1);
+      padding-inline: var(--size-2);
+      font-size: var(--font-size-0);
+    }
+
+    .lineup-table .lineup-time {
+      width: 3.75rem;
+    }
   }
 
   .potions {
