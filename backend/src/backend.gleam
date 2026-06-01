@@ -91,6 +91,8 @@ fn handle_request(
     Post, ["api", "login"] -> handle_login(s, req)
     Get, ["api", "users"] -> handle_get_users(s)
     Get, ["api", "events"] -> handle_get_events()
+    Post, ["api", "events", "potion", "check"] ->
+      handle_check_potion(s, req)
     Post, ["api", "events", event_id, "result"] ->
       handle_submit_result(s, event_id, req)
     Get, ["api", "jousting", "state"] -> handle_get_jousting_state(s)
@@ -214,6 +216,40 @@ fn handle_submit_result(
   }
 }
 
+fn handle_check_potion(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, potion_check_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(PotionCheckRequest(handle:, answers:)) -> {
+      let results = scoring.check_potion_answers(answers)
+      let guesses =
+        list.filter_map(results, fn(r) {
+          case r {
+            option.Some(guess) -> Ok(guess)
+            option.None -> Error(Nil)
+          }
+        })
+      let raw = scoring.PotionRaw(guesses)
+      let points = scoring.score(raw)
+      store.upsert_result(s, store.EventResult(handle:, event_id: "potion", raw:, points:))
+      json.object([
+        #(
+          "results",
+          json.array(results, fn(r) {
+            case r {
+              option.Some(scoring.Correct) -> json.string("correct")
+              option.Some(scoring.Incorrect) -> json.string("incorrect")
+              option.None -> json.string("skipped")
+            }
+          }),
+        ),
+      ])
+      |> json.to_string
+      |> wisp.json_response(200)
+    }
+  }
+}
+
 fn handle_vote(s: store.Store, req: Request) -> Response {
   use json_body <- wisp.require_json(req)
   case decode.run(json_body, vote_request_decoder()) {
@@ -333,6 +369,16 @@ fn submit_result_decoder() -> decode.Decoder(SubmitResultRequest) {
   use handle <- decode.field("handle", decode.string)
   use raw <- decode.field("raw", scoring.raw_input_decoder())
   decode.success(SubmitResultRequest(handle:, raw:))
+}
+
+type PotionCheckRequest {
+  PotionCheckRequest(handle: String, answers: List(String))
+}
+
+fn potion_check_decoder() -> decode.Decoder(PotionCheckRequest) {
+  use handle <- decode.field("handle", decode.string)
+  use answers <- decode.field("answers", decode.list(decode.string))
+  decode.success(PotionCheckRequest(handle:, answers:))
 }
 
 fn handle_decoder() -> decode.Decoder(String) {

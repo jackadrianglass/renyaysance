@@ -2,19 +2,13 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/string
 
 // POINT VALUES — adjust these to change scoring --------------------------------
 
 const potion_points_per_correct = 10
-
-const archery_missed_points = 0
-
-const archery_outer_ring_points = 3
-
-const archery_inner_ring_points = 7
-
-const archery_bullseye_points = 10
 
 const axe_throwing_missed_points = 0
 
@@ -40,13 +34,6 @@ pub type PotionGuess {
   Incorrect
 }
 
-pub type ArcheryShot {
-  Missed
-  OuterRing
-  InnerRing
-  Bullseye
-}
-
 pub type AxeThrowingShot {
   AxeMissed
   AxeOuterRing
@@ -66,7 +53,7 @@ pub type Bout {
 
 pub type RawInput {
   PotionRaw(List(PotionGuess))
-  ArcheryRaw(List(ArcheryShot))
+  ArcheryRaw(List(List(Int)))
   JoustingRaw(List(JoustingRound))
   VotingRaw(voters: List(String))
   AxeThrowingRaw(List(AxeThrowingShot))
@@ -75,6 +62,33 @@ pub type RawInput {
 
 pub type Event {
   Event(id: String, label: String)
+}
+
+// POTION ANSWERS --------------------------------------------------------------
+
+const potion_answers = [
+  "polyjuice potion",
+  "felix felicis",
+  "veritaserum",
+  "amortentia",
+  "draught of living death",
+  "wolfsbane potion",
+  "skele-gro",
+]
+
+pub fn check_potion_answers(user_answers: List(String)) -> List(Option(PotionGuess)) {
+  list.zip(potion_answers, user_answers)
+  |> list.map(fn(pair) {
+    let #(answer, user_answer) = pair
+    case string.trim(user_answer) {
+      "" -> None
+      trimmed ->
+        case string.lowercase(trimmed) == answer {
+          True -> Some(Correct)
+          False -> Some(Incorrect)
+        }
+    }
+  })
 }
 
 // EVENTS ----------------------------------------------------------------------
@@ -118,15 +132,9 @@ fn score_potion(guesses: List(PotionGuess)) -> Int {
   })
 }
 
-fn score_archery(shots: List(ArcheryShot)) -> Int {
+fn score_archery(shots: List(List(Int))) -> Int {
   list.fold(shots, 0, fn(acc, shot) {
-    acc
-    + case shot {
-      Missed -> archery_missed_points
-      OuterRing -> archery_outer_ring_points
-      InnerRing -> archery_inner_ring_points
-      Bullseye -> archery_bullseye_points
-    }
+    acc + list.fold(shot, 0, fn(inner, pin) { inner + pin })
   })
 }
 
@@ -174,7 +182,7 @@ pub fn encode_raw_input(raw: RawInput) -> json.Json {
     ArcheryRaw(shots) ->
       json.object([
         #("type", json.string("archery")),
-        #("shots", json.array(shots, encode_archery_shot)),
+        #("shots", json.array(shots, fn(shot) { json.array(shot, json.int) })),
       ])
     AxeThrowingRaw(shots) ->
       json.object([
@@ -213,15 +221,6 @@ fn encode_potion_guess(guess: PotionGuess) -> json.Json {
   }
 }
 
-fn encode_archery_shot(shot: ArcheryShot) -> json.Json {
-  case shot {
-    Missed -> json.string("missed")
-    OuterRing -> json.string("outer_ring")
-    InnerRing -> json.string("inner_ring")
-    Bullseye -> json.string("bullseye")
-  }
-}
-
 fn encode_axe_throwing_shot(shot: AxeThrowingShot) -> json.Json {
   case shot {
     AxeMissed -> json.string("missed")
@@ -251,7 +250,10 @@ pub fn raw_input_decoder() -> decode.Decoder(RawInput) {
       decode.success(PotionRaw(attempts))
     }
     "archery" -> {
-      use shots <- decode.field("shots", decode.list(archery_shot_decoder()))
+      use shots <- decode.field(
+        "shots",
+        decode.list(decode.list(decode.int)),
+      )
       decode.success(ArcheryRaw(shots))
     }
     "axe_throwing" -> {
@@ -293,16 +295,6 @@ fn potion_guess_decoder() -> decode.Decoder(PotionGuess) {
   case str {
     "correct" -> decode.success(Correct)
     _ -> decode.success(Incorrect)
-  }
-}
-
-fn archery_shot_decoder() -> decode.Decoder(ArcheryShot) {
-  use str <- decode.then(decode.string)
-  case str {
-    "outer_ring" -> decode.success(OuterRing)
-    "inner_ring" -> decode.success(InnerRing)
-    "bullseye" -> decode.success(Bullseye)
-    _ -> decode.success(Missed)
   }
 }
 

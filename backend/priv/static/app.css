@@ -488,30 +488,38 @@
     font-weight: var(--font-weight-6);
   }
 
-  .attempt-btn {
+  .potion-answer-input {
+    flex: 1;
+  }
+
+  .potion-result {
+    display: flex;
+    align-items: center;
+    gap: var(--size-3);
+    flex: 1;
+  }
+
+  .result-badge {
     padding-block: var(--size-1);
-    padding-inline: var(--size-3);
-    opacity: 0.5;
-    transition: opacity var(--transition-fast-2), outline var(--transition-fast-2);
-  }
-
-  .attempt-btn.selected {
-    opacity: 1;
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-  }
-
-  .attempt-btn--correct {
-    color: var(--green-7);
-  }
-
-  .attempt-btn--incorrect {
-    color: var(--red-7);
-  }
-
-  .saved-message {
-    color: var(--green-7);
+    padding-inline: var(--size-2);
+    border-radius: var(--radius-2);
+    font-size: var(--font-size-0);
     font-weight: var(--font-weight-6);
+  }
+
+  .result-badge--correct {
+    background: var(--green-2);
+    color: var(--green-8);
+  }
+
+  .result-badge--incorrect {
+    background: var(--red-2);
+    color: var(--red-8);
+  }
+
+  .result-badge--skipped {
+    background: var(--stone-2);
+    color: var(--stone-7);
   }
 
   .attempts {
@@ -581,6 +589,68 @@
   .attempt-add:hover {
     background-color: var(--color-bg-surface);
     color: var(--color-text);
+  }
+
+  /* Archery — cup triangle */
+
+  .archery-shot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-2);
+    padding: var(--size-3);
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2);
+  }
+
+  .archery-shot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-1);
+  }
+
+  .archery-shot-score {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-1);
+    text-align: center;
+    margin: 0;
+  }
+
+  .cup-triangle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--size-2);
+    padding-block: var(--size-2);
+  }
+
+  .cup-row {
+    display: flex;
+    gap: var(--size-2);
+  }
+
+  .cup {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-round);
+    font-size: var(--font-size-1);
+    font-weight: var(--font-weight-6);
+    padding: 0;
+    border: 2px solid var(--color-border);
+    background-color: transparent;
+    transition: border-color var(--transition-fast-2), background-color var(--transition-fast-2), opacity var(--transition-fast-2);
+  }
+
+  .cup:hover {
+    border-color: var(--color-accent);
+  }
+
+  .cup--knocked {
+    background-color: var(--scarlet-2);
+    border-color: var(--scarlet-4);
+    color: var(--scarlet-6);
   }
 
   /* Jousting bracket */
