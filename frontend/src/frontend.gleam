@@ -12,6 +12,7 @@ import lustre/event
 import modem
 import page/about
 import page/archery
+import page/axe_throwing
 import page/costume_voting
 import page/hobby_horse_races
 import page/home
@@ -22,7 +23,6 @@ import page/not_found
 import page/potion_quiz
 import page/riddles
 import page/scavenger_hunt
-import page/sword_fighting
 import page/tournament
 import plinth/javascript/global
 import router.{type Route}
@@ -52,10 +52,10 @@ type Model {
     leaderboard: List(#(String, Int)),
     potion_quiz: potion_quiz.Model,
     archery: archery.Model,
+    axe_throwing: axe_throwing.Model,
     jousting: jousting.Model,
     costume_voting: costume_voting.Model,
     hobby_horse_races: hobby_horse_races.Model,
-    sword_fighting: sword_fighting.Model,
   )
 }
 
@@ -78,10 +78,10 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       leaderboard: [],
       potion_quiz: potion_quiz.init(),
       archery: archery.init(),
+      axe_throwing: axe_throwing.init(),
       jousting: jousting_model,
       costume_voting: voting_model,
       hobby_horse_races: hobby_horse_races.init(),
-      sword_fighting: sword_fighting.init(),
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
@@ -106,10 +106,10 @@ type Msg {
   LeaderboardFetched(Result(List(#(String, Int)), rsvp.Error(String)))
   PotionQuizMsg(potion_quiz.Msg)
   ArcheryMsg(archery.Msg)
+  AxeThrowingMsg(axe_throwing.Msg)
   JoustingMsg(jousting.Msg)
   CostumeVotingMsg(costume_voting.Msg)
   HobbyHorseRacesMsg(hobby_horse_races.Msg)
-  SwordFightingMsg(sword_fighting.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -211,6 +211,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
     }
 
+    AxeThrowingMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        axe_throwing.update(model.axe_throwing, sub_msg, handle)
+      #(
+        Model(..model, axe_throwing: sub_model),
+        effect.map(sub_effect, AxeThrowingMsg),
+      )
+    }
+
     JoustingMsg(sub_msg) -> {
       let handle = get_handle(model.auth)
       let #(sub_model, sub_effect) =
@@ -241,15 +251,6 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
     }
 
-    SwordFightingMsg(sub_msg) -> {
-      let handle = get_handle(model.auth)
-      let #(sub_model, sub_effect) =
-        sword_fighting.update(model.sword_fighting, sub_msg, handle)
-      #(
-        Model(..model, sword_fighting: sub_model),
-        effect.map(sub_effect, SwordFightingMsg),
-      )
-    }
   }
 }
 
@@ -361,6 +362,8 @@ fn view_page(model: Model) -> Element(Msg) {
     router.PotionQuiz ->
       element.map(potion_quiz.view(model.potion_quiz), PotionQuizMsg)
     router.Archery -> element.map(archery.view(model.archery), ArcheryMsg)
+    router.AxeThrowing ->
+      element.map(axe_throwing.view(model.axe_throwing), AxeThrowingMsg)
     router.Jousting ->
       element.map(
         jousting.view(model.jousting, get_handle(model.auth)),
@@ -368,8 +371,6 @@ fn view_page(model: Model) -> Element(Msg) {
       )
     router.Riddles -> riddles.view()
     router.ScavengerHunt -> scavenger_hunt.view()
-    router.SwordFighting ->
-      element.map(sword_fighting.view(model.sword_fighting), SwordFightingMsg)
     router.MysticArts -> mystic_arts.view()
     router.HobbyHorseRaces ->
       element.map(

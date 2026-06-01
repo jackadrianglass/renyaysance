@@ -13,6 +13,7 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
     html.h2([], [html.text("Tournament")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.Archery, "Archery"),
+      layout.nav_button(router.AxeThrowing, "Axe Throwing"),
       layout.nav_button(router.HobbyHorseRaces, "Hobby Horsing"),
       layout.nav_button(router.PotionQuiz, "Potion"),
       layout.nav_button(router.Jousting, "King's Court Jousting"),
@@ -20,7 +21,6 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
     html.h2([], [html.text("Quests")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.Riddles, "Riddles"),
-      layout.nav_button(router.SwordFighting, "Sword Fighting"),
       layout.nav_button(router.ScavengerHunt, "Scavenger Hunt"),
       layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),

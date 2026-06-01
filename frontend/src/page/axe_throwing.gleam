@@ -11,45 +11,46 @@ import rsvp
 
 // MODEL -----------------------------------------------------------------------
 
-pub type Outcome {
-  Pending
-  Won
-  Lost
+pub type Zone {
+  Missed
+  OuterRing
+  InnerRing
+  Bullseye
 }
 
 pub type Model {
-  Model(bouts: List(Outcome), saved: Bool)
+  Model(shots: List(Zone), saved: Bool)
 }
 
 pub fn init() -> Model {
-  Model(bouts: [], saved: False)
+  Model(shots: [Missed], saved: False)
 }
 
 // UPDATE ----------------------------------------------------------------------
 
 pub type Msg {
-  AddBout
-  SetOutcome(Int, Outcome)
-  RemoveBout(Int)
+  AddShot
+  SetShot(Int, Zone)
+  RemoveShot(Int)
   Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    AddBout -> #(
-      Model(bouts: list.append(model.bouts, [Pending]), saved: False),
+    AddShot -> #(
+      Model(shots: list.append(model.shots, [Missed]), saved: False),
       effect.none(),
     )
-    SetOutcome(index, outcome) -> #(
-      Model(bouts: set_at(model.bouts, index, outcome), saved: model.saved),
+    SetShot(index, zone) -> #(
+      Model(shots: set_at(model.shots, index, zone), saved: model.saved),
       effect.none(),
     )
-    RemoveBout(index) -> #(
-      Model(bouts: remove_at(model.bouts, index), saved: False),
+    RemoveShot(index) -> #(
+      Model(shots: remove_at(model.shots, index), saved: False),
       effect.none(),
     )
-    Submit -> #(model, do_submit(handle, model.bouts))
+    Submit -> #(model, do_submit(handle, model.shots))
     Saved(ok) -> #(Model(..model, saved: ok), effect.none())
   }
 }
@@ -67,30 +68,31 @@ fn remove_at(lst: List(a), index: Int) -> List(a) {
   list.flatten([list.take(lst, index), list.drop(lst, index + 1)])
 }
 
-fn do_submit(handle: String, bouts: List(Outcome)) -> Effect(Msg) {
+fn do_submit(handle: String, shots: List(Zone)) -> Effect(Msg) {
   let body =
     json.object([
       #("handle", json.string(handle)),
       #(
         "raw",
         json.object([
-          #("type", json.string("sword_fighting")),
-          #("bouts", json.array(bouts, encode_outcome)),
+          #("type", json.string("axe_throwing")),
+          #("shots", json.array(shots, encode_zone)),
         ]),
       ),
     ])
   rsvp.post(
-    "/api/events/sword-fighting/result",
+    "/api/events/axe-throwing/result",
     body,
     rsvp.expect_ok_response(fn(result) { Saved(result_is_ok(result)) }),
   )
 }
 
-fn encode_outcome(outcome: Outcome) -> json.Json {
-  case outcome {
-    Pending -> json.string("pending")
-    Won -> json.string("won")
-    Lost -> json.string("lost")
+fn encode_zone(zone: Zone) -> json.Json {
+  case zone {
+    Missed -> json.string("missed")
+    OuterRing -> json.string("outer_ring")
+    InnerRing -> json.string("inner_ring")
+    Bullseye -> json.string("bullseye")
   }
 }
 
@@ -104,22 +106,17 @@ fn result_is_ok(r: Result(a, b)) -> Bool {
 // VIEW ------------------------------------------------------------------------
 
 pub fn view(model: Model) -> Element(Msg) {
-  layout.page("Sword Fighting", [
-    html.p([], [html.text("Test your mettle in honorable combat.")]),
+  layout.page("Axe Throwing", [
+    html.p([], [html.text("Hurl your axe and claim your score.")]),
     html.div(
       [attribute.class("attempts")],
-      list.index_map(model.bouts, view_row),
+      list.index_map(model.shots, view_row),
     ),
-    html.button([attribute.class("attempt-add"), event.on_click(AddBout)], [
+    html.button([attribute.class("attempt-add"), event.on_click(AddShot)], [
       html.text("+"),
     ]),
     html.p([], [
-      html.text(
-        "Wins: "
-        <> int.to_string(count_wins(model.bouts))
-        <> " / "
-        <> int.to_string(list.length(model.bouts)),
-      ),
+      html.text("Score: " <> int.to_string(compute_score(model.shots)) <> " pts"),
     ]),
     case model.saved {
       True ->
@@ -130,48 +127,53 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn view_row(outcome: Outcome, index: Int) -> Element(Msg) {
-  let row_cls = case outcome {
-    Pending -> "attempt-row"
-    Won -> "attempt-row attempt-row--bullseye"
-    Lost -> "attempt-row attempt-row--missed"
+fn view_row(zone: Zone, index: Int) -> Element(Msg) {
+  let row_cls = case zone {
+    Missed -> "attempt-row attempt-row--missed"
+    OuterRing -> "attempt-row attempt-row--outer"
+    InnerRing -> "attempt-row attempt-row--inner"
+    Bullseye -> "attempt-row attempt-row--bullseye"
   }
   html.div([attribute.class(row_cls)], [
     html.span([attribute.class("attempt-num")], [
-      html.text("Bout " <> int.to_string(index + 1)),
+      html.text(int.to_string(index + 1)),
     ]),
     html.div([attribute.class("attempt-zones")], [
-      view_outcome_btn(index, outcome, Won, "Win"),
-      view_outcome_btn(index, outcome, Lost, "Loss"),
+      view_zone_btn(index, zone, Missed, "Missed"),
+      view_zone_btn(index, zone, OuterRing, "Outer Ring"),
+      view_zone_btn(index, zone, InnerRing, "Inner Ring"),
+      view_zone_btn(index, zone, Bullseye, "Bullseye"),
     ]),
     html.button(
-      [attribute.class("attempt-remove"), event.on_click(RemoveBout(index))],
+      [attribute.class("attempt-remove"), event.on_click(RemoveShot(index))],
       [html.text("✕")],
     ),
   ])
 }
 
-fn view_outcome_btn(
+fn view_zone_btn(
   index: Int,
-  current: Outcome,
-  outcome: Outcome,
+  current: Zone,
+  zone: Zone,
   label: String,
 ) -> Element(Msg) {
-  let cls = case current == outcome {
+  let cls = case current == zone {
     True -> "attempt-btn selected"
     False -> "attempt-btn"
   }
   html.button(
-    [attribute.class(cls), event.on_click(SetOutcome(index, outcome))],
+    [attribute.class(cls), event.on_click(SetShot(index, zone))],
     [html.text(label)],
   )
 }
 
-fn count_wins(bouts: List(Outcome)) -> Int {
-  list.fold(bouts, 0, fn(acc, outcome) {
-    acc + case outcome {
-      Won -> 1
-      Pending | Lost -> 0
+fn compute_score(shots: List(Zone)) -> Int {
+  list.fold(shots, 0, fn(acc, zone) {
+    acc + case zone {
+      Missed -> 0
+      OuterRing -> 3
+      InnerRing -> 7
+      Bullseye -> 10
     }
   })
 }

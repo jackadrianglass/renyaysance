@@ -16,11 +16,17 @@ const archery_inner_ring_points = 7
 
 const archery_bullseye_points = 10
 
+const axe_throwing_missed_points = 0
+
+const axe_throwing_outer_ring_points = 3
+
+const axe_throwing_inner_ring_points = 7
+
+const axe_throwing_bullseye_points = 10
+
 const jousting_points_per_win = 10
 
 const jousting_win_cap = 6
-
-const sword_fighting_points_per_win = 10
 
 const hobby_horse_points_per_win = 10
 
@@ -41,6 +47,13 @@ pub type ArcheryShot {
   Bullseye
 }
 
+pub type AxeThrowingShot {
+  AxeMissed
+  AxeOuterRing
+  AxeInnerRing
+  AxeBullseye
+}
+
 pub type JoustingRound {
   Win
   Loss
@@ -56,8 +69,8 @@ pub type RawInput {
   ArcheryRaw(List(ArcheryShot))
   JoustingRaw(List(JoustingRound))
   VotingRaw(voters: List(String))
+  AxeThrowingRaw(List(AxeThrowingShot))
   HobbyHorseRaw(List(Bout))
-  SwordFightingRaw(List(Bout))
 }
 
 pub type Event {
@@ -70,8 +83,8 @@ pub fn events() -> List(Event) {
   [
     Event("potion", "Potion Guessing"),
     Event("archery", "Archery"),
+    Event("axe-throwing", "Axe Throwing"),
     Event("jousting", "Jousting"),
-    Event("sword-fighting", "Sword Fighting"),
     Event("hobby-horse", "Hobby Horse Races"),
     Event("voting", "Voting"),
   ]
@@ -83,9 +96,9 @@ pub fn score(raw: RawInput) -> Int {
   case raw {
     PotionRaw(guesses) -> score_potion(guesses)
     ArcheryRaw(shots) -> score_archery(shots)
+    AxeThrowingRaw(shots) -> score_axe_throwing(shots)
     JoustingRaw(rounds) -> score_jousting(rounds)
     HobbyHorseRaw(bouts) -> score_bouts(bouts, hobby_horse_points_per_win)
-    SwordFightingRaw(bouts) -> score_bouts(bouts, sword_fighting_points_per_win)
     VotingRaw(_) -> 0
   }
 }
@@ -113,6 +126,18 @@ fn score_archery(shots: List(ArcheryShot)) -> Int {
       OuterRing -> archery_outer_ring_points
       InnerRing -> archery_inner_ring_points
       Bullseye -> archery_bullseye_points
+    }
+  })
+}
+
+fn score_axe_throwing(shots: List(AxeThrowingShot)) -> Int {
+  list.fold(shots, 0, fn(acc, shot) {
+    acc
+    + case shot {
+      AxeMissed -> axe_throwing_missed_points
+      AxeOuterRing -> axe_throwing_outer_ring_points
+      AxeInnerRing -> axe_throwing_inner_ring_points
+      AxeBullseye -> axe_throwing_bullseye_points
     }
   })
 }
@@ -151,6 +176,11 @@ pub fn encode_raw_input(raw: RawInput) -> json.Json {
         #("type", json.string("archery")),
         #("shots", json.array(shots, encode_archery_shot)),
       ])
+    AxeThrowingRaw(shots) ->
+      json.object([
+        #("type", json.string("axe_throwing")),
+        #("shots", json.array(shots, encode_axe_throwing_shot)),
+      ])
     JoustingRaw(rounds) ->
       json.object([
         #("type", json.string("jousting")),
@@ -160,11 +190,6 @@ pub fn encode_raw_input(raw: RawInput) -> json.Json {
       json.object([
         #("type", json.string("hobby_horse")),
         #("races", json.array(bouts, encode_bout)),
-      ])
-    SwordFightingRaw(bouts) ->
-      json.object([
-        #("type", json.string("sword_fighting")),
-        #("bouts", json.array(bouts, encode_bout)),
       ])
     VotingRaw(voters) ->
       json.object([
@@ -197,6 +222,15 @@ fn encode_archery_shot(shot: ArcheryShot) -> json.Json {
   }
 }
 
+fn encode_axe_throwing_shot(shot: AxeThrowingShot) -> json.Json {
+  case shot {
+    AxeMissed -> json.string("missed")
+    AxeOuterRing -> json.string("outer_ring")
+    AxeInnerRing -> json.string("inner_ring")
+    AxeBullseye -> json.string("bullseye")
+  }
+}
+
 fn encode_jousting_round(round: JoustingRound) -> json.Json {
   case round {
     Win -> json.string("win")
@@ -220,6 +254,13 @@ pub fn raw_input_decoder() -> decode.Decoder(RawInput) {
       use shots <- decode.field("shots", decode.list(archery_shot_decoder()))
       decode.success(ArcheryRaw(shots))
     }
+    "axe_throwing" -> {
+      use shots <- decode.field(
+        "shots",
+        decode.list(axe_throwing_shot_decoder()),
+      )
+      decode.success(AxeThrowingRaw(shots))
+    }
     "jousting" -> {
       use rounds <- decode.field(
         "rounds",
@@ -230,10 +271,6 @@ pub fn raw_input_decoder() -> decode.Decoder(RawInput) {
     "hobby_horse" -> {
       use races <- decode.field("races", decode.list(bout_decoder()))
       decode.success(HobbyHorseRaw(races))
-    }
-    "sword_fighting" -> {
-      use bouts <- decode.field("bouts", decode.list(bout_decoder()))
-      decode.success(SwordFightingRaw(bouts))
     }
     "voting" -> {
       use voters <- decode.field("voters", decode.list(decode.string))
@@ -266,6 +303,16 @@ fn archery_shot_decoder() -> decode.Decoder(ArcheryShot) {
     "inner_ring" -> decode.success(InnerRing)
     "bullseye" -> decode.success(Bullseye)
     _ -> decode.success(Missed)
+  }
+}
+
+fn axe_throwing_shot_decoder() -> decode.Decoder(AxeThrowingShot) {
+  use str <- decode.then(decode.string)
+  case str {
+    "outer_ring" -> decode.success(AxeOuterRing)
+    "inner_ring" -> decode.success(AxeInnerRing)
+    "bullseye" -> decode.success(AxeBullseye)
+    _ -> decode.success(AxeMissed)
   }
 }
 
