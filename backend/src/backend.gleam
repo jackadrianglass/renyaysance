@@ -11,6 +11,8 @@ import lustre/element
 import lustre/element/html
 import mist
 import scoring
+import scoring/jousting
+import scoring/potion
 import store
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
@@ -221,7 +223,7 @@ fn handle_check_potion(s: store.Store, req: Request) -> Response {
   case decode.run(json_body, potion_check_decoder()) {
     Error(_) -> wisp.bad_request("Invalid request body")
     Ok(PotionCheckRequest(handle:, answers:)) -> {
-      let results = scoring.check_potion_answers(answers)
+      let results = potion.check_answers(answers)
       let guesses =
         list.filter_map(results, fn(r) {
           case r {
@@ -237,8 +239,8 @@ fn handle_check_potion(s: store.Store, req: Request) -> Response {
           "results",
           json.array(results, fn(r) {
             case r {
-              option.Some(scoring.Correct) -> json.string("correct")
-              option.Some(scoring.Incorrect) -> json.string("incorrect")
+              option.Some(potion.Correct) -> json.string("correct")
+              option.Some(potion.Incorrect) -> json.string("incorrect")
               option.None -> json.string("skipped")
             }
           }),
@@ -319,9 +321,9 @@ fn handle_jousting_match_result(s: store.Store, req: Request) -> Response {
             store.EventResult(
               handle:,
               event_id: "jousting",
-              raw: scoring.JoustingRaw(list.repeat(scoring.Win, wins)),
+              raw: scoring.JoustingRaw(list.repeat(jousting.Win, wins)),
               points: scoring.score(
-                scoring.JoustingRaw(list.repeat(scoring.Win, wins)),
+                scoring.JoustingRaw(list.repeat(jousting.Win, wins)),
               ),
             ),
           )

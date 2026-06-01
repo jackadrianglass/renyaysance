@@ -492,11 +492,10 @@
     flex: 1;
   }
 
-  .potion-result {
+  .potion-footer {
     display: flex;
     align-items: center;
-    gap: var(--size-3);
-    flex: 1;
+    gap: var(--size-4);
   }
 
   .result-badge {

@@ -35,13 +35,13 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
     SetAnswer(index, answer) -> #(
       Model(
-        ..model,
         answers: list.index_map(model.answers, fn(a, i) {
           case i == index {
             True -> answer
             False -> a
           }
         }),
+        results: None,
       ),
       effect.none(),
     )
@@ -68,15 +68,17 @@ fn do_submit(handle: String, answers: List(String)) -> Effect(Msg) {
 }
 
 fn results_decoder() -> decode.Decoder(List(Option(Bool))) {
-  decode.list(
-    decode.then(decode.string, fn(s) {
+  use results <- decode.field(
+    "results",
+    decode.list(decode.then(decode.string, fn(s) {
       case s {
         "correct" -> decode.success(Some(True))
         "incorrect" -> decode.success(Some(False))
         _ -> decode.success(None)
       }
-    }),
+    })),
   )
+  decode.success(results)
 }
 
 // VIEW ------------------------------------------------------------------------
@@ -99,18 +101,18 @@ pub fn view(model: Model) -> Element(Msg) {
         view_potion(i + 1, i, answer, potion_result)
       }),
     ),
-    case model.results {
-      None ->
-        html.div([attribute.class("stack")], [
-          html.button([event.on_click(Submit)], [html.text("Submit Answers")]),
-        ])
-      Some(results) ->
-        html.p([], [
-          html.text(
-            "Score: " <> int.to_string(compute_score(results)) <> " pts",
-          ),
-        ])
-    },
+    html.div([attribute.class("potion-footer")], [
+      case model.results {
+        None -> html.text("")
+        Some(results) ->
+          html.p([], [
+            html.text(
+              "Score: " <> int.to_string(compute_score(results)) <> " pts",
+            ),
+          ])
+      },
+      html.button([event.on_click(Submit)], [html.text("Submit Answers")]),
+    ]),
   ])
 }
 
@@ -124,38 +126,32 @@ fn view_potion(
     html.span([attribute.class("potion-name")], [
       html.text("Potion " <> int.to_string(number)),
     ]),
+    html.input([
+      attribute.type_("text"),
+      attribute.value(answer),
+      attribute.placeholder("Your answer…"),
+      attribute.class("potion-answer-input"),
+      event.on_input(SetAnswer(index, _)),
+    ]),
     case potion_result {
-      None ->
-        html.input([
-          attribute.type_("text"),
-          attribute.value(answer),
-          attribute.placeholder("Your answer…"),
-          attribute.class("potion-answer-input"),
-          event.on_input(SetAnswer(index, _)),
-        ])
+      None -> html.text("")
       Some(r) ->
-        html.div([attribute.class("potion-result")], [
-          html.span([], [html.text(case answer {
-            "" -> "(no answer)"
-            _ -> answer
-          })]),
-          html.span(
-            [
-              attribute.class(case r {
-                Some(True) -> "result-badge result-badge--correct"
-                Some(False) -> "result-badge result-badge--incorrect"
-                None -> "result-badge result-badge--skipped"
-              }),
-            ],
-            [
-              html.text(case r {
-                Some(True) -> "Correct"
-                Some(False) -> "Incorrect"
-                None -> "Skipped"
-              }),
-            ],
-          ),
-        ])
+        html.span(
+          [
+            attribute.class(case r {
+              Some(True) -> "result-badge result-badge--correct"
+              Some(False) -> "result-badge result-badge--incorrect"
+              None -> "result-badge result-badge--skipped"
+            }),
+          ],
+          [
+            html.text(case r {
+              Some(True) -> "Correct"
+              Some(False) -> "Incorrect"
+              None -> "Skipped"
+            }),
+          ],
+        )
     },
   ])
 }
