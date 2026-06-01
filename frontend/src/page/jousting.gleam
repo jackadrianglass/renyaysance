@@ -37,8 +37,8 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 pub type Msg {
   StateFetched(Result(BracketPhase, rsvp.Error(String)))
-  SignUp
   GenerateBracket
+  ResetBracket
   RecordResult(Bool)
   ActionDone(Result(BracketPhase, rsvp.Error(String)))
 }
@@ -48,8 +48,8 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
     StateFetched(Ok(phase)) -> #(Model(..model, phase:), effect.none())
     StateFetched(Error(_)) -> #(model, effect.none())
 
-    SignUp -> #(model, do_signup(handle))
     GenerateBracket -> #(model, do_generate(handle))
+    ResetBracket -> #(model, do_reset(handle))
     RecordResult(won) -> #(
       Model(..model, result_sent: True),
       do_match_result(handle, won),
@@ -64,10 +64,10 @@ pub fn fetch_state() -> Effect(Msg) {
   rsvp.get("/api/jousting/state", rsvp.expect_json(phase_decoder(), StateFetched))
 }
 
-fn do_signup(handle: String) -> Effect(Msg) {
+fn do_reset(handle: String) -> Effect(Msg) {
   let body = json.object([#("handle", json.string(handle))])
   rsvp.post(
-    "/api/jousting/signup",
+    "/api/jousting/reset",
     body,
     rsvp.expect_json(phase_decoder(), ActionDone),
   )
@@ -129,46 +129,38 @@ pub fn view(model: Model, handle: String) -> Element(Msg) {
     case model.phase {
       Loading -> html.p([], [html.text("Loading bracket…")])
       SignupPhase(participants) ->
-        view_signup(participants, handle, is_host)
+        view_signup(participants, is_host)
       ActivePhase(rounds) ->
-        view_bracket(rounds, handle, model.result_sent)
+        view_bracket(rounds, handle, model.result_sent, is_host)
     },
   ])
 }
 
 fn view_signup(
   participants: List(String),
-  handle: String,
   is_host: Bool,
 ) -> Element(Msg) {
-  let signed_up = list.contains(participants, handle)
   html.div([attribute.class("jousting-signup")], [
     html.p([], [
       html.text(
-        "Champions signed up: " <> int.to_string(list.length(participants)),
+        "Top " <> int.to_string(list.length(participants)) <> " competitors entering the bracket:",
       ),
     ]),
     html.ul(
       [attribute.class("jousting-signup-list")],
       list.map(participants, fn(p) { html.li([], [html.text(p)]) }),
     ),
-    case signed_up {
-      True ->
-        html.p([attribute.class("saved-message")], [
-          html.text("You're signed up!"),
-        ])
-      False ->
-        html.button([event.on_click(SignUp)], [html.text("Sign Up")])
-    },
     case is_host {
       True ->
-        html.button(
-          [
-            attribute.class("jousting-generate"),
-            event.on_click(GenerateBracket),
-          ],
-          [html.text("Generate Bracket")],
-        )
+        html.div([attribute.class("jousting-host-controls")], [
+          html.button(
+            [
+              attribute.class("jousting-generate"),
+              event.on_click(GenerateBracket),
+            ],
+            [html.text("Generate Bracket")],
+          ),
+        ])
       False ->
         html.p([attribute.class("jousting-waiting")], [
           html.text("Waiting for host to start the bracket…"),
@@ -181,10 +173,19 @@ fn view_bracket(
   rounds: List(List(BracketMatch)),
   handle: String,
   result_sent: Bool,
+  is_host: Bool,
 ) -> Element(Msg) {
   let active_match = find_active_match(rounds, handle)
   html.div([], [
     view_match_controls(active_match, result_sent),
+    case is_host {
+      True ->
+        html.button(
+          [attribute.class("jousting-reset"), event.on_click(ResetBracket)],
+          [html.text("Reset Tournament")],
+        )
+      False -> html.text("")
+    },
     html.div(
       [attribute.class("bracket")],
       list.index_map(rounds, fn(round, ri) {

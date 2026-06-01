@@ -98,8 +98,8 @@ fn handle_request(
     Post, ["api", "events", event_id, "result"] ->
       handle_submit_result(s, event_id, req)
     Get, ["api", "jousting", "state"] -> handle_get_jousting_state(s)
-    Post, ["api", "jousting", "signup"] -> handle_jousting_signup(s, req)
     Post, ["api", "jousting", "generate"] -> handle_jousting_generate(s, req)
+    Post, ["api", "jousting", "reset"] -> handle_jousting_reset(s, req)
     Post, ["api", "jousting", "match-result"] ->
       handle_jousting_match_result(s, req)
     Post, ["api", "vote"] -> handle_vote(s, req)
@@ -277,20 +277,12 @@ fn handle_get_leaderboard(s: store.Store) -> Response {
 }
 
 fn handle_get_jousting_state(s: store.Store) -> Response {
-  store.encode_bracket_state_to_string(store.get_bracket_state(s))
-  |> wisp.json_response(200)
-}
-
-fn handle_jousting_signup(s: store.Store, req: Request) -> Response {
-  use json_body <- wisp.require_json(req)
-  case decode.run(json_body, handle_decoder()) {
-    Error(_) -> wisp.bad_request("Invalid request body")
-    Ok(handle) -> {
-      store.jousting_signup(s, handle)
-      store.encode_bracket_state_to_string(store.get_bracket_state(s))
-      |> wisp.json_response(200)
-    }
+  let state = case store.get_bracket_state(s) {
+    store.SignupPhase(_) -> store.SignupPhase(store.top_players(s, 8))
+    other -> other
   }
+  store.encode_bracket_state_to_string(state)
+  |> wisp.json_response(200)
 }
 
 fn handle_jousting_generate(s: store.Store, req: Request) -> Response {
@@ -302,6 +294,20 @@ fn handle_jousting_generate(s: store.Store, req: Request) -> Response {
         False -> wisp.response(403)
         True ->
           store.encode_bracket_state_to_string(store.jousting_generate(s))
+          |> wisp.json_response(200)
+      }
+  }
+}
+
+fn handle_jousting_reset(s: store.Store, req: Request) -> Response {
+  use json_body <- wisp.require_json(req)
+  case decode.run(json_body, handle_decoder()) {
+    Error(_) -> wisp.bad_request("Invalid request body")
+    Ok(handle) ->
+      case handle == host_handle {
+        False -> wisp.response(403)
+        True ->
+          store.encode_bracket_state_to_string(store.jousting_reset(s))
           |> wisp.json_response(200)
       }
   }

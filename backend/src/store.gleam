@@ -190,27 +190,22 @@ pub fn get_bracket_state(store: Store) -> BracketState {
   |> result.unwrap(SignupPhase([]))
 }
 
-pub fn jousting_signup(store: Store, handle: String) -> Nil {
-  case get_bracket_state(store) {
-    SignupPhase(participants) ->
-      case list.contains(participants, handle) {
-        True -> Nil
-        False -> {
-          let _ =
-            storail.write(
-              storail.key(store.jousting_bracket, "state"),
-              SignupPhase(list.append(participants, [handle])),
-            )
-          Nil
-        }
-      }
-    ActivePhase(_) -> Nil
-  }
+pub fn top_players(store: Store, n: Int) -> List(String) {
+  leaderboard(store)
+  |> list.take(n)
+  |> list.map(fn(pair) { pair.0 })
+}
+
+pub fn jousting_reset(store: Store) -> BracketState {
+  let state = SignupPhase([])
+  let _ = storail.write(storail.key(store.jousting_bracket, "state"), state)
+  state
 }
 
 pub fn jousting_generate(store: Store) -> BracketState {
   case get_bracket_state(store) {
-    SignupPhase(participants) -> {
+    SignupPhase(_) -> {
+      let participants = top_players(store, 8)
       let bracket = generate_bracket(participants)
       let state = ActivePhase(bracket)
       let _ =

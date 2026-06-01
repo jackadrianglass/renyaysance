@@ -1,4 +1,4 @@
-.PHONY: dev build build-frontend build-backend clean
+.PHONY: dev build build-frontend build-backend clean seed
 
 dev: build-frontend
 	cd backend && gleam run
@@ -10,6 +10,9 @@ build-frontend:
 
 build-backend:
 	cd backend && gleam build
+
+seed:
+	cd backend && gleam run -m seed
 
 clean:
 	rm -f backend/priv/static/app.js
