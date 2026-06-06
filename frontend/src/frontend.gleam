@@ -57,6 +57,7 @@ type Model {
     costume_voting: costume_voting.Model,
     hobby_horse_races: hobby_horse_races.Model,
     scavenger_hunt: scavenger_hunt.Model,
+    about: about.Model,
   )
 }
 
@@ -84,6 +85,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       costume_voting: voting_model,
       hobby_horse_races: hobby_horse_races.init(),
       scavenger_hunt: scavenger_hunt.init(),
+      about: about.init(),
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
@@ -113,6 +115,7 @@ type Msg {
   CostumeVotingMsg(costume_voting.Msg)
   HobbyHorseRacesMsg(hobby_horse_races.Msg)
   ScavengerHuntMsg(scavenger_hunt.Msg)
+  AboutMsg(about.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -264,6 +267,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
     }
 
+    AboutMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        about.update(model.about, sub_msg, handle)
+      #(
+        Model(..model, about: sub_model),
+        effect.map(sub_effect, AboutMsg),
+      )
+    }
+
   }
 }
 
@@ -337,7 +350,7 @@ fn view(model: Model) -> Element(Msg) {
                 [html.text("Login")],
               ),
             ]),
-            about.view(),
+            element.map(about.view(model.about), AboutMsg),
           ])
 
         _, _ ->
@@ -371,7 +384,7 @@ fn view(model: Model) -> Element(Msg) {
 fn view_page(model: Model) -> Element(Msg) {
   case model.route {
     router.Home -> home.view(model.leaderboard)
-    router.About -> about.view()
+    router.About -> element.map(about.view(model.about), AboutMsg)
     router.PotionQuiz ->
       element.map(potion_quiz.view(model.potion_quiz), PotionQuizMsg)
     router.Archery -> element.map(archery.view(model.archery), ArcheryMsg)

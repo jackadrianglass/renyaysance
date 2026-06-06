@@ -846,6 +846,23 @@
     line-height: var(--font-lineheight-3);
   }
 
+  .email-copy {
+    display: inline;
+    background: none;
+    color: var(--color-accent);
+    padding: 0;
+    border-radius: 0;
+    font-weight: inherit;
+    font-size: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .email-copy:hover {
+    background: none;
+    color: var(--color-primary-hover);
+  }
+
   .voting-search {
     width: 100%;
     margin-block-end: var(--size-3);
