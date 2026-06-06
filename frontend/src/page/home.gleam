@@ -8,8 +8,6 @@ import router
 
 pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
   layout.page("Contest of Champions", [
-    html.h2([], [html.text("Leaderboard")]),
-    view_leaderboard(leaderboard),
     html.h2([], [html.text("Tournament")]),
     html.div([attribute.class("nav-grid")], [
       layout.nav_button(router.Archery, "Archery"),
@@ -24,6 +22,8 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
       layout.nav_button(router.ScavengerHunt, "Scavenger Hunt"),
       layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),
+    html.h2([], [html.text("Leaderboard")]),
+    view_leaderboard(leaderboard),
   ])
 }
 

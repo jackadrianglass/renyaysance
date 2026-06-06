@@ -3,6 +3,7 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import layout
 import lustre/attribute
 import lustre/effect.{type Effect}
@@ -24,10 +25,13 @@ pub type Model {
   Model(answers: List(String), results: List(Option(Bool)))
 }
 
-pub fn init() -> Model {
-  Model(
-    answers: list.repeat("", potion_count),
-    results: list.repeat(None, potion_count),
+pub fn init(handle: String) -> #(Model, Effect(Msg)) {
+  #(
+    Model(
+      answers: list.repeat("", potion_count),
+      results: list.repeat(None, potion_count),
+    ),
+    fetch_guesses(handle),
   )
 }
 
@@ -37,6 +41,7 @@ pub type Msg {
   SetAnswer(Int, String)
   CheckAnswer(Int)
   GotResult(Int, Result(List(Option(Bool)), rsvp.Error(String)))
+  GotGuesses(Result(List(#(String, String, Option(Bool))), rsvp.Error(String)))
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
@@ -83,7 +88,53 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
       )
     }
     GotResult(_, Error(_)) -> #(model, effect.none())
+
+    GotGuesses(Ok(saved)) -> {
+      let answers =
+        list.map(potion_names, fn(name) {
+          list.find_map(saved, fn(triple) {
+            let #(n, a, _) = triple
+            case n == name {
+              True -> Ok(a)
+              False -> Error(Nil)
+            }
+          })
+          |> result.unwrap("")
+        })
+      let results =
+        list.map(potion_names, fn(name) {
+          list.find_map(saved, fn(triple) {
+            let #(n, _, r) = triple
+            case n == name {
+              True -> Ok(r)
+              False -> Error(Nil)
+            }
+          })
+          |> result.unwrap(None)
+        })
+      #(Model(..model, answers:, results:), effect.none())
+    }
+    GotGuesses(Error(_)) -> #(model, effect.none())
   }
+}
+
+fn fetch_guesses(handle: String) -> Effect(Msg) {
+  let decoder = {
+    use entries <- decode.field(
+      "answers",
+      decode.list({
+        use name <- decode.field("name", decode.string)
+        use answer <- decode.field("answer", decode.string)
+        use result <- decode.field("result", decode.optional(decode.bool))
+        decode.success(#(name, answer, result))
+      }),
+    )
+    decode.success(entries)
+  }
+  rsvp.get(
+    "/api/events/potion/guesses/" <> handle,
+    rsvp.expect_json(decoder, GotGuesses),
+  )
 }
 
 fn do_check_single(

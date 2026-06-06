@@ -27,6 +27,10 @@ pub type EventResult {
   EventResult(handle: String, event_id: String, raw: RawInput, points: Int)
 }
 
+pub type PotionEntry {
+  PotionEntry(name: String, answer: String, result: Option(Bool))
+}
+
 pub type Vote {
   Vote(voter: String, votee: String)
 }
@@ -37,6 +41,7 @@ pub type Store {
     event_results: storail.Collection(List(EventResult)),
     votes: storail.Collection(List(Vote)),
     jousting_bracket: storail.Collection(BracketState),
+    potion_guesses: storail.Collection(List(PotionEntry)),
   )
 }
 
@@ -77,7 +82,15 @@ pub fn setup() -> Store {
       config:,
     )
 
-  Store(users:, event_results:, votes:, jousting_bracket:)
+  let potion_guesses =
+    storail.Collection(
+      name: "potion_guesses",
+      to_json: fn(entries) { json.array(entries, encode_potion_entry) },
+      decoder: decode.list(potion_entry_decoder()),
+      config:,
+    )
+
+  Store(users:, event_results:, votes:, jousting_bracket:, potion_guesses:)
 }
 
 pub fn all_users(store: Store) -> List(String) {
@@ -114,6 +127,26 @@ pub fn upsert_result(store: Store, new_result: EventResult) -> Nil {
     storail.write(
       storail.key(store.event_results, "all"),
       list.append(without_old, [new_result]),
+    )
+  Nil
+}
+
+pub fn get_potion_guesses(store: Store, handle: String) -> List(PotionEntry) {
+  storail.read(storail.key(store.potion_guesses, handle))
+  |> result.unwrap([])
+}
+
+pub fn upsert_potion_guess(
+  store: Store,
+  handle: String,
+  entry: PotionEntry,
+) -> Nil {
+  let guesses = get_potion_guesses(store, handle)
+  let without_old = list.filter(guesses, fn(e) { e.name != entry.name })
+  let _ =
+    storail.write(
+      storail.key(store.potion_guesses, handle),
+      list.append(without_old, [entry]),
     )
   Nil
 }
@@ -518,4 +551,19 @@ fn vote_decoder() -> decode.Decoder(Vote) {
   use voter <- decode.field("voter", decode.string)
   use votee <- decode.field("votee", decode.string)
   decode.success(Vote(voter:, votee:))
+}
+
+fn encode_potion_entry(e: PotionEntry) -> json.Json {
+  json.object([
+    #("name", json.string(e.name)),
+    #("answer", json.string(e.answer)),
+    #("result", json.nullable(e.result, json.bool)),
+  ])
+}
+
+fn potion_entry_decoder() -> decode.Decoder(PotionEntry) {
+  use name <- decode.field("name", decode.string)
+  use answer <- decode.field("answer", decode.string)
+  use result <- decode.field("result", decode.optional(decode.bool))
+  decode.success(PotionEntry(name:, answer:, result:))
 }

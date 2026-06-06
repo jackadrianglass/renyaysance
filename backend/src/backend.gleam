@@ -96,6 +96,8 @@ fn handle_request(
     Get, ["api", "events"] -> handle_get_events()
     Post, ["api", "events", "potion", "check"] ->
       handle_check_potion(s, req)
+    Get, ["api", "events", "potion", "guesses", handle] ->
+      handle_get_potion_guesses(s, handle)
     Post, ["api", "events", event_id, "result"] ->
       handle_submit_result(s, event_id, req)
     Get, ["api", "jousting", "state"] -> handle_get_jousting_state(s)
@@ -227,6 +229,19 @@ fn handle_check_potion(s: store.Store, req: Request) -> Response {
     Ok(PotionCheckRequest(handle:, answers:)) -> {
       let named_answers = list.map(answers, fn(a) { #(a.name, a.answer) })
       let results = potion.check_answers(named_answers)
+      list.each(list.zip(answers, results), fn(pair) {
+        let #(a, check_result) = pair
+        let bool_result = case check_result {
+          option.Some(potion.Correct) -> option.Some(True)
+          option.Some(potion.Incorrect) -> option.Some(False)
+          option.None -> option.None
+        }
+        store.upsert_potion_guess(
+          s,
+          handle,
+          store.PotionEntry(name: a.name, answer: a.answer, result: bool_result),
+        )
+      })
       let guesses =
         list.filter_map(results, fn(r) {
           case r {
@@ -253,6 +268,24 @@ fn handle_check_potion(s: store.Store, req: Request) -> Response {
       |> wisp.json_response(200)
     }
   }
+}
+
+fn handle_get_potion_guesses(s: store.Store, handle: String) -> Response {
+  let entries = store.get_potion_guesses(s, handle)
+  json.object([
+    #(
+      "answers",
+      json.array(entries, fn(e) {
+        json.object([
+          #("name", json.string(e.name)),
+          #("answer", json.string(e.answer)),
+          #("result", json.nullable(e.result, json.bool)),
+        ])
+      }),
+    ),
+  ])
+  |> json.to_string
+  |> wisp.json_response(200)
 }
 
 fn handle_vote(s: store.Store, req: Request) -> Response {

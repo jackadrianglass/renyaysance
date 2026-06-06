@@ -70,15 +70,20 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     option.Some(name) -> LoggedIn(name)
     option.None -> LoggedOut("", "", option.None)
   }
+  let handle = case auth {
+    LoggedIn(name) -> name
+    _ -> ""
+  }
   let #(voting_model, voting_effect) = costume_voting.init()
   let #(jousting_model, jousting_effect) = jousting.init()
+  let #(potion_quiz_model, potion_quiz_effect) = potion_quiz.init(handle)
   #(
     Model(
       route:,
       auth:,
       viewing_login: False,
       leaderboard: [],
-      potion_quiz: potion_quiz.init(),
+      potion_quiz: potion_quiz_model,
       archery: archery.init(),
       axe_throwing: axe_throwing.init(),
       jousting: jousting_model,
@@ -90,6 +95,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
       fetch_leaderboard(),
+      effect.map(potion_quiz_effect, PotionQuizMsg),
       effect.map(voting_effect, CostumeVotingMsg),
       effect.map(jousting_effect, JoustingMsg),
     ]),
