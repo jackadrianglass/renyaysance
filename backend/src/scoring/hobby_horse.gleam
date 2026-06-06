@@ -1,16 +1,16 @@
 import gleam/list
 
 // Points by finish time (seconds). Tiers checked in order; first match wins.
-// | < 30s  | 100 pts |
-// | 30–44s |  80 pts |
-// | 45–59s |  60 pts |
-// | 60–89s |  40 pts |
-// | 90s+   |  20 pts |
+// | < 10s  | 100 pts |
+// | 10–14s |  80 pts |
+// | 15–19s |  60 pts |
+// | 20–29s |  40 pts |
+// | 30s+   |  20 pts |
 const points_table: List(#(Int, Int)) = [
-  #(30, 100),
-  #(45, 80),
-  #(60, 60),
-  #(90, 40),
+  #(10, 100),
+  #(15, 80),
+  #(20, 60),
+  #(30, 40),
   #(99999, 20),
 ]
 
