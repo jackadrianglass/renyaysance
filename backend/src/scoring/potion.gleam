@@ -8,14 +8,16 @@ import gleam/string
 
 const points_per_correct = 10
 
-const answers = [
-  "polyjuice potion",
-  "felix felicis",
-  "veritaserum",
-  "amortentia",
-  "draught of living death",
-  "wolfsbane potion",
-  "skele-gro",
+const answer_map = [
+  #("Coloured stripes", "paprika"),
+  #("Purple", "lavender"),
+  #("Cherry Bottle", "balsamic vinegar"),
+  #("Yellow Flowers", "coffee"),
+  #("Pink Flowers", "nutmeg"),
+  #("Orange circles", "ginger"),
+  #("Blue Mountains", "yeast"),
+  #("Vines", "thyme"),
+  #("Blue waves, red dots", "sesame oil"),
 ]
 
 pub type PotionGuess {
@@ -23,19 +25,36 @@ pub type PotionGuess {
   Incorrect
 }
 
-pub fn check_answers(user_answers: List(String)) -> List(Option(PotionGuess)) {
-  list.zip(answers, user_answers)
-  |> list.map(fn(pair) {
-    let #(answer, user_answer) = pair
+pub fn check_answers(
+  user_answers: List(#(String, String)),
+) -> List(Option(PotionGuess)) {
+  list.map(user_answers, fn(pair) {
+    let #(name, user_answer) = pair
     case string.trim(user_answer) {
       "" -> None
       _ ->
-        case is_close_enough(user_answer, answer) {
-          True -> Some(Correct)
-          False -> Some(Incorrect)
+        case find_correct(name) {
+          None -> Some(Incorrect)
+          Some(correct) ->
+            case is_close_enough(user_answer, correct) {
+              True -> Some(Correct)
+              False -> Some(Incorrect)
+            }
         }
     }
   })
+}
+
+fn find_correct(name: String) -> Option(String) {
+  let key = string.lowercase(string.trim(name))
+  list.find_map(answer_map, fn(pair) {
+    let #(n, a) = pair
+    case string.lowercase(n) == key {
+      True -> Ok(a)
+      False -> Error(Nil)
+    }
+  })
+  |> option.from_result
 }
 
 // Accepts an answer if it matches exactly, if the correct answer appears as a

@@ -225,7 +225,8 @@ fn handle_check_potion(s: store.Store, req: Request) -> Response {
   case decode.run(json_body, potion_check_decoder()) {
     Error(_) -> wisp.bad_request("Invalid request body")
     Ok(PotionCheckRequest(handle:, answers:)) -> {
-      let results = potion.check_answers(answers)
+      let named_answers = list.map(answers, fn(a) { #(a.name, a.answer) })
+      let results = potion.check_answers(named_answers)
       let guesses =
         list.filter_map(results, fn(r) {
           case r {
@@ -381,13 +382,23 @@ fn submit_result_decoder() -> decode.Decoder(SubmitResultRequest) {
   decode.success(SubmitResultRequest(handle:, raw:))
 }
 
+type PotionAnswer {
+  PotionAnswer(name: String, answer: String)
+}
+
 type PotionCheckRequest {
-  PotionCheckRequest(handle: String, answers: List(String))
+  PotionCheckRequest(handle: String, answers: List(PotionAnswer))
+}
+
+fn potion_answer_decoder() -> decode.Decoder(PotionAnswer) {
+  use name <- decode.field("name", decode.string)
+  use answer <- decode.field("answer", decode.string)
+  decode.success(PotionAnswer(name:, answer:))
 }
 
 fn potion_check_decoder() -> decode.Decoder(PotionCheckRequest) {
   use handle <- decode.field("handle", decode.string)
-  use answers <- decode.field("answers", decode.list(decode.string))
+  use answers <- decode.field("answers", decode.list(potion_answer_decoder()))
   decode.success(PotionCheckRequest(handle:, answers:))
 }
 

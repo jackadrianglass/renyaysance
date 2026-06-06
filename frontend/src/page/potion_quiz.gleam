@@ -13,7 +13,12 @@ import rsvp
 
 // MODEL -----------------------------------------------------------------------
 
-const potion_count = 7
+const potion_count = 9
+
+const potion_names = [
+  "Coloured stripes", "Purple", "Cherry Bottle", "Yellow Flowers", "Pink Flowers",
+  "Orange circles", "Blue Mountains", "Vines", "Blue waves, red dots",
+]
 
 pub type Model {
   Model(answers: List(String), results: List(Option(Bool)))
@@ -53,7 +58,11 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
         [a, ..] -> a
         [] -> ""
       }
-      #(model, do_check_single(handle, index, answer))
+      let name = case list.drop(potion_names, index) {
+        [n, ..] -> n
+        [] -> ""
+      }
+      #(model, do_check_single(handle, index, name, answer))
     }
     GotResult(index, Ok(results)) -> {
       let result = case results {
@@ -77,11 +86,22 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   }
 }
 
-fn do_check_single(handle: String, index: Int, answer: String) -> Effect(Msg) {
+fn do_check_single(
+  handle: String,
+  index: Int,
+  name: String,
+  answer: String,
+) -> Effect(Msg) {
   let body =
     json.object([
       #("handle", json.string(handle)),
-      #("answers", json.array([answer], json.string)),
+      #(
+        "answers",
+        json.array([#(name, answer)], fn(pair) {
+          let #(n, a) = pair
+          json.object([#("name", json.string(n)), #("answer", json.string(a))])
+        }),
+      ),
     ])
   rsvp.post(
     "/api/events/potion/check",
@@ -112,10 +132,10 @@ pub fn view(model: Model) -> Element(Msg) {
     html.p([], [html.text("Identify the correct potion to advance.")]),
     html.div(
       [attribute.class("potions")],
-      list.zip(model.answers, model.results)
+      list.zip(potion_names, list.zip(model.answers, model.results))
         |> list.index_map(fn(pair, i) {
-          let #(answer, result) = pair
-          view_potion(i + 1, i, answer, result)
+          let #(name, #(answer, result)) = pair
+          view_potion(name, i, answer, result)
         }),
     ),
     html.div([attribute.class("potion-footer")], [
@@ -133,15 +153,13 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn view_potion(
-  number: Int,
+  name: String,
   index: Int,
   answer: String,
   result: Option(Bool),
 ) -> Element(Msg) {
   html.div([attribute.class("potion")], [
-    html.span([attribute.class("potion-name")], [
-      html.text("Potion " <> int.to_string(number)),
-    ]),
+    html.span([attribute.class("potion-name")], [html.text(name)]),
     html.input([
       attribute.type_("text"),
       attribute.value(answer),
