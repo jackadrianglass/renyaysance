@@ -5,7 +5,6 @@ import lustre/attribute.{type Attribute}
 pub type Route {
   Home
   About
-  Riddles
   ScavengerHunt
   MysticArts
   PotionQuiz
@@ -22,7 +21,6 @@ pub fn parse_route(uri: Uri) -> Route {
   case uri.path_segments(uri.path) {
     [] | [""] -> Home
     ["about"] -> About
-    ["riddles"] -> Riddles
     ["scavenger-hunt"] -> ScavengerHunt
     ["mystic-arts"] -> MysticArts
     ["potion-quiz"] -> PotionQuiz
@@ -40,7 +38,6 @@ pub fn href(route: Route) -> Attribute(msg) {
   let path = case route {
     Home -> "/"
     About -> "/about"
-    Riddles -> "/riddles"
     ScavengerHunt -> "/scavenger-hunt"
     MysticArts -> "/mystic-arts"
     PotionQuiz -> "/potion-quiz"

@@ -21,7 +21,6 @@ import page/login
 import page/mystic_arts
 import page/not_found
 import page/potion_quiz
-import page/riddles
 import page/scavenger_hunt
 import page/tournament
 import plinth/javascript/global
@@ -401,7 +400,6 @@ fn view_page(model: Model) -> Element(Msg) {
         jousting.view(model.jousting, get_handle(model.auth)),
         JoustingMsg,
       )
-    router.Riddles -> riddles.view()
     router.ScavengerHunt ->
       element.map(scavenger_hunt.view(model.scavenger_hunt), ScavengerHuntMsg)
     router.MysticArts -> mystic_arts.view()

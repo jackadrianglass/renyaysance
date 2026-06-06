@@ -18,7 +18,6 @@ pub fn view(leaderboard: List(#(String, Int))) -> Element(msg) {
     ]),
     html.h2([], [html.text("Quests")]),
     html.div([attribute.class("nav-grid")], [
-      layout.nav_button(router.Riddles, "Riddles"),
       layout.nav_button(router.ScavengerHunt, "Scavenger Hunt"),
       layout.nav_button(router.CostumeVoting, "Costume Voting"),
     ]),
