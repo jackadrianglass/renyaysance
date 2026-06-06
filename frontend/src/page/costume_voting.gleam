@@ -17,11 +17,11 @@ import rsvp
 // MODEL -----------------------------------------------------------------------
 
 pub type Model {
-  Model(candidates: List(String), selected: Option(String))
+  Model(candidates: List(String), selected: Option(String), query: String)
 }
 
 pub fn init() -> #(Model, Effect(Msg)) {
-  #(Model(candidates: [], selected: option.None), fetch_users())
+  #(Model(candidates: [], selected: option.None, query: ""), fetch_users())
 }
 
 // UPDATE ----------------------------------------------------------------------
@@ -30,6 +30,7 @@ pub type Msg {
   UsersFetched(Result(List(String), rsvp.Error(String)))
   UserVoted(String)
   VoteSubmitted(Bool)
+  SetQuery(String)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
@@ -47,6 +48,7 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
       do_vote(handle, votee),
     )
     VoteSubmitted(_) -> #(model, effect.none())
+    SetQuery(query) -> #(Model(..model, query:), effect.none())
   }
 }
 
@@ -78,14 +80,25 @@ fn do_vote(voter: String, votee: String) -> Effect(Msg) {
 // VIEW ------------------------------------------------------------------------
 
 pub fn view(model: Model) -> Element(Msg) {
+  let visible =
+    list.filter(model.candidates, fn(c) {
+      string.contains(string.lowercase(c), string.lowercase(model.query))
+    })
   layout.page("Costume Voting", [
     html.p([], [html.text("Vote for the best costume of the day.")]),
+    html.input([
+      attribute.type_("search"),
+      attribute.value(model.query),
+      attribute.placeholder("Search names…"),
+      attribute.class("voting-search"),
+      event.on_input(SetQuery),
+    ]),
     case model.candidates {
       [] -> html.p([], [html.text("No other players yet.")])
       _ ->
         html.div(
           [attribute.class("hunt-items")],
-          list.map(model.candidates, fn(candidate) {
+          list.map(visible, fn(candidate) {
             let selected = model.selected == option.Some(candidate)
             view_candidate(candidate, selected)
           }),

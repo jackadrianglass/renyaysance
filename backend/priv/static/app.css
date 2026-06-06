@@ -846,6 +846,11 @@
     line-height: var(--font-lineheight-3);
   }
 
+  .voting-search {
+    width: 100%;
+    margin-block-end: var(--size-3);
+  }
+
   .hunt-upload {
     margin-block-start: var(--size-5);
     padding-block-start: var(--size-5);
