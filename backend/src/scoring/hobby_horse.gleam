@@ -1,34 +1,34 @@
-import gleam/dynamic/decode
-import gleam/json
 import gleam/list
 
-const points_per_win = 10
+// Points by finish time (seconds). Tiers checked in order; first match wins.
+// | < 30s  | 100 pts |
+// | 30–44s |  80 pts |
+// | 45–59s |  60 pts |
+// | 60–89s |  40 pts |
+// | 90s+   |  20 pts |
+const points_table: List(#(Int, Int)) = [
+  #(30, 100),
+  #(45, 80),
+  #(60, 60),
+  #(90, 40),
+  #(99999, 20),
+]
 
-pub type Bout {
-  BoutWon
-  BoutLost
+pub fn score(times: List(Int)) -> Int {
+  list.fold(times, 0, fn(acc, seconds) { acc + points_for_time(seconds) })
 }
 
-pub fn score(bouts: List(Bout)) -> Int {
-  list.fold(bouts, 0, fn(acc, bout) {
-    case bout {
-      BoutWon -> acc + points_per_win
-      BoutLost -> acc
-    }
-  })
+fn points_for_time(seconds: Int) -> Int {
+  do_lookup(seconds, points_table)
 }
 
-pub fn encode_bout(bout: Bout) -> json.Json {
-  case bout {
-    BoutWon -> json.string("won")
-    BoutLost -> json.string("lost")
-  }
-}
-
-pub fn bout_decoder() -> decode.Decoder(Bout) {
-  use str <- decode.then(decode.string)
-  case str {
-    "won" -> decode.success(BoutWon)
-    _ -> decode.success(BoutLost)
+fn do_lookup(seconds: Int, table: List(#(Int, Int))) -> Int {
+  case table {
+    [] -> 0
+    [#(max, points), ..rest] ->
+      case seconds < max {
+        True -> points
+        False -> do_lookup(seconds, rest)
+      }
   }
 }

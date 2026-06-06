@@ -56,6 +56,7 @@ type Model {
     jousting: jousting.Model,
     costume_voting: costume_voting.Model,
     hobby_horse_races: hobby_horse_races.Model,
+    scavenger_hunt: scavenger_hunt.Model,
   )
 }
 
@@ -82,6 +83,7 @@ fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
       jousting: jousting_model,
       costume_voting: voting_model,
       hobby_horse_races: hobby_horse_races.init(),
+      scavenger_hunt: scavenger_hunt.init(),
     ),
     effect.batch([
       modem.init(fn(uri) { OnRouteChange(router.parse_route(uri)) }),
@@ -110,6 +112,7 @@ type Msg {
   JoustingMsg(jousting.Msg)
   CostumeVotingMsg(costume_voting.Msg)
   HobbyHorseRacesMsg(hobby_horse_races.Msg)
+  ScavengerHuntMsg(scavenger_hunt.Msg)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -251,6 +254,16 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
     }
 
+    ScavengerHuntMsg(sub_msg) -> {
+      let handle = get_handle(model.auth)
+      let #(sub_model, sub_effect) =
+        scavenger_hunt.update(model.scavenger_hunt, sub_msg, handle)
+      #(
+        Model(..model, scavenger_hunt: sub_model),
+        effect.map(sub_effect, ScavengerHuntMsg),
+      )
+    }
+
   }
 }
 
@@ -370,7 +383,8 @@ fn view_page(model: Model) -> Element(Msg) {
         JoustingMsg,
       )
     router.Riddles -> riddles.view()
-    router.ScavengerHunt -> scavenger_hunt.view()
+    router.ScavengerHunt ->
+      element.map(scavenger_hunt.view(model.scavenger_hunt), ScavengerHuntMsg)
     router.MysticArts -> mystic_arts.view()
     router.HobbyHorseRaces ->
       element.map(

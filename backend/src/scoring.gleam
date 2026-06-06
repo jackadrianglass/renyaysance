@@ -14,7 +14,8 @@ pub type RawInput {
   ArcheryRaw(List(List(Int)))
   AxeThrowingRaw(List(axe_throwing.AxeThrowingShot))
   JoustingRaw(List(jousting.JoustingRound))
-  HobbyHorseRaw(List(hobby_horse.Bout))
+  HobbyHorseRaw(List(Int))
+  ScavengerHuntRaw(List(Bool))
   VotingRaw(voters: List(String))
 }
 
@@ -31,6 +32,7 @@ pub fn events() -> List(Event) {
     Event("axe-throwing", "Axe Throwing"),
     Event("jousting", "Jousting"),
     Event("hobby-horse", "Hobby Horse Races"),
+    Event("scavenger-hunt", "Scavenger Hunt"),
     Event("voting", "Voting"),
   ]
 }
@@ -43,7 +45,8 @@ pub fn score(raw: RawInput) -> Int {
     ArcheryRaw(shots) -> archery.score(shots)
     AxeThrowingRaw(shots) -> axe_throwing.score(shots)
     JoustingRaw(rounds) -> jousting.score(rounds)
-    HobbyHorseRaw(bouts) -> hobby_horse.score(bouts)
+    HobbyHorseRaw(times) -> hobby_horse.score(times)
+    ScavengerHuntRaw(_) -> 0
     VotingRaw(_) -> 0
   }
 }
@@ -76,10 +79,15 @@ pub fn encode_raw_input(raw: RawInput) -> json.Json {
         #("type", json.string("jousting")),
         #("rounds", json.array(rounds, jousting.encode_round)),
       ])
-    HobbyHorseRaw(bouts) ->
+    HobbyHorseRaw(times) ->
       json.object([
         #("type", json.string("hobby_horse")),
-        #("races", json.array(bouts, hobby_horse.encode_bout)),
+        #("races", json.array(times, json.int)),
+      ])
+    ScavengerHuntRaw(items) ->
+      json.object([
+        #("type", json.string("scavenger_hunt")),
+        #("items", json.array(items, json.bool)),
       ])
     VotingRaw(voters) ->
       json.object([
@@ -120,8 +128,12 @@ pub fn raw_input_decoder() -> decode.Decoder(RawInput) {
       decode.success(JoustingRaw(rounds))
     }
     "hobby_horse" -> {
-      use races <- decode.field("races", decode.list(hobby_horse.bout_decoder()))
+      use races <- decode.field("races", decode.list(decode.int))
       decode.success(HobbyHorseRaw(races))
+    }
+    "scavenger_hunt" -> {
+      use items <- decode.field("items", decode.list(decode.bool))
+      decode.success(ScavengerHuntRaw(items))
     }
     "voting" -> {
       use voters <- decode.field("voters", decode.list(decode.string))

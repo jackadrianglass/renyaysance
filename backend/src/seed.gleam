@@ -3,7 +3,6 @@ import gleam/io
 import gleam/list
 import scoring
 import scoring/axe_throwing
-import scoring/hobby_horse
 import scoring/potion
 import store
 
@@ -58,19 +57,17 @@ pub fn main() {
   seed(s, "Morgan", scoring.AxeThrowingRaw([outer, miss]))
   seed(s, "Mordred", scoring.AxeThrowingRaw([miss]))
 
-  // Hobby horse races (10 pts per win)
-  let won = hobby_horse.BoutWon
-  let lost = hobby_horse.BoutLost
-  seed(s, "Arthur", scoring.HobbyHorseRaw([won, won, won, lost]))
-  seed(s, "Lancelot", scoring.HobbyHorseRaw([won, won, lost]))
-  seed(s, "Guinevere", scoring.HobbyHorseRaw([won, won]))
-  seed(s, "Galahad", scoring.HobbyHorseRaw([won, lost, won]))
-  seed(s, "Merlin", scoring.HobbyHorseRaw([lost]))
-  seed(s, "Percival", scoring.HobbyHorseRaw([won]))
-  seed(s, "Gawain", scoring.HobbyHorseRaw([lost, lost]))
-  seed(s, "Tristan", scoring.HobbyHorseRaw([lost]))
-  seed(s, "Morgan", scoring.HobbyHorseRaw([lost, won]))
-  seed(s, "Mordred", scoring.HobbyHorseRaw([lost, lost, lost]))
+  // Hobby horse races (points by finish time — see scoring/hobby_horse.gleam)
+  seed(s, "Arthur", scoring.HobbyHorseRaw([22, 28, 35, 78]))
+  seed(s, "Lancelot", scoring.HobbyHorseRaw([30, 42, 55]))
+  seed(s, "Guinevere", scoring.HobbyHorseRaw([38, 47]))
+  seed(s, "Galahad", scoring.HobbyHorseRaw([20, 25, 33]))
+  seed(s, "Merlin", scoring.HobbyHorseRaw([62]))
+  seed(s, "Percival", scoring.HobbyHorseRaw([41]))
+  seed(s, "Gawain", scoring.HobbyHorseRaw([70, 80]))
+  seed(s, "Tristan", scoring.HobbyHorseRaw([95]))
+  seed(s, "Morgan", scoring.HobbyHorseRaw([88, 50]))
+  seed(s, "Mordred", scoring.HobbyHorseRaw([110, 100, 92]))
 
   // Costume votes — Arthur wins, then Lancelot, Guinevere, Merlin
   store.upsert_vote(s, store.Vote(voter: "Guinevere", votee: "Arthur"))
@@ -112,6 +109,7 @@ fn event_id_of(raw: scoring.RawInput) -> String {
     scoring.AxeThrowingRaw(_) -> "axe-throwing"
     scoring.JoustingRaw(_) -> "jousting"
     scoring.HobbyHorseRaw(_) -> "hobby-horse"
+    scoring.ScavengerHuntRaw(_) -> "scavenger-hunt"
     scoring.VotingRaw(_) -> "voting"
   }
 }

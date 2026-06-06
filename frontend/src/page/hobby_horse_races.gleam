@@ -11,14 +11,13 @@ import rsvp
 
 // MODEL -----------------------------------------------------------------------
 
-pub type Outcome {
-  Pending
-  Won
-  Lost
+pub type Race {
+  NotRecorded
+  Timed(Int)
 }
 
 pub type Model {
-  Model(races: List(Outcome), saved: Bool)
+  Model(races: List(Race), saved: Bool)
 }
 
 pub fn init() -> Model {
@@ -29,7 +28,7 @@ pub fn init() -> Model {
 
 pub type Msg {
   AddRace
-  SetOutcome(Int, Outcome)
+  SetTime(Int, String)
   RemoveRace(Int)
   Submit
   Saved(Bool)
@@ -38,13 +37,19 @@ pub type Msg {
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
     AddRace -> #(
-      Model(races: list.append(model.races, [Pending]), saved: False),
+      Model(races: list.append(model.races, [NotRecorded]), saved: False),
       effect.none(),
     )
-    SetOutcome(index, outcome) -> #(
-      Model(races: set_at(model.races, index, outcome), saved: model.saved),
-      effect.none(),
-    )
+    SetTime(index, val) -> {
+      let race = case int.parse(val) {
+        Ok(s) if s >= 0 -> Timed(s)
+        _ -> NotRecorded
+      }
+      #(
+        Model(races: set_at(model.races, index, race), saved: False),
+        effect.none(),
+      )
+    }
     RemoveRace(index) -> #(
       Model(races: remove_at(model.races, index), saved: False),
       effect.none(),
@@ -67,7 +72,14 @@ fn remove_at(lst: List(a), index: Int) -> List(a) {
   list.flatten([list.take(lst, index), list.drop(lst, index + 1)])
 }
 
-fn do_submit(handle: String, races: List(Outcome)) -> Effect(Msg) {
+fn do_submit(handle: String, races: List(Race)) -> Effect(Msg) {
+  let times =
+    list.filter_map(races, fn(r) {
+      case r {
+        NotRecorded -> Error(Nil)
+        Timed(s) -> Ok(s)
+      }
+    })
   let body =
     json.object([
       #("handle", json.string(handle)),
@@ -75,7 +87,7 @@ fn do_submit(handle: String, races: List(Outcome)) -> Effect(Msg) {
         "raw",
         json.object([
           #("type", json.string("hobby_horse")),
-          #("races", json.array(races, encode_outcome)),
+          #("races", json.array(times, json.int)),
         ]),
       ),
     ])
@@ -84,14 +96,6 @@ fn do_submit(handle: String, races: List(Outcome)) -> Effect(Msg) {
     body,
     rsvp.expect_ok_response(fn(result) { Saved(result_is_ok(result)) }),
   )
-}
-
-fn encode_outcome(outcome: Outcome) -> json.Json {
-  case outcome {
-    Pending -> json.string("pending")
-    Won -> json.string("won")
-    Lost -> json.string("lost")
-  }
 }
 
 fn result_is_ok(r: Result(a, b)) -> Bool {
@@ -115,10 +119,11 @@ pub fn view(model: Model) -> Element(Msg) {
     ]),
     html.p([], [
       html.text(
-        "Wins: "
-        <> int.to_string(count_wins(model.races))
+        "Recorded: "
+        <> int.to_string(count_recorded(model.races))
         <> " / "
-        <> int.to_string(list.length(model.races)),
+        <> int.to_string(list.length(model.races))
+        <> " races",
       ),
     ]),
     case model.saved {
@@ -130,19 +135,25 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn view_row(outcome: Outcome, index: Int) -> Element(Msg) {
-  let row_cls = case outcome {
-    Pending -> "attempt-row"
-    Won -> "attempt-row attempt-row--bullseye"
-    Lost -> "attempt-row attempt-row--missed"
+fn view_row(race: Race, index: Int) -> Element(Msg) {
+  let row_cls = case race {
+    NotRecorded -> "attempt-row"
+    Timed(_) -> "attempt-row attempt-row--bullseye"
   }
   html.div([attribute.class(row_cls)], [
     html.span([attribute.class("attempt-num")], [
       html.text("Race " <> int.to_string(index + 1)),
     ]),
-    html.div([attribute.class("attempt-zones")], [
-      view_outcome_btn(index, outcome, Won, "Win"),
-      view_outcome_btn(index, outcome, Lost, "Loss"),
+    html.input([
+      attribute.class("attempt-time"),
+      attribute.type_("number"),
+      attribute.placeholder("seconds"),
+      attribute.attribute("min", "0"),
+      attribute.value(case race {
+        NotRecorded -> ""
+        Timed(s) -> int.to_string(s)
+      }),
+      event.on_input(fn(val) { SetTime(index, val) }),
     ]),
     html.button(
       [attribute.class("attempt-remove"), event.on_click(RemoveRace(index))],
@@ -151,27 +162,11 @@ fn view_row(outcome: Outcome, index: Int) -> Element(Msg) {
   ])
 }
 
-fn view_outcome_btn(
-  index: Int,
-  current: Outcome,
-  outcome: Outcome,
-  label: String,
-) -> Element(Msg) {
-  let cls = case current == outcome {
-    True -> "attempt-btn selected"
-    False -> "attempt-btn"
-  }
-  html.button(
-    [attribute.class(cls), event.on_click(SetOutcome(index, outcome))],
-    [html.text(label)],
-  )
-}
-
-fn count_wins(races: List(Outcome)) -> Int {
-  list.fold(races, 0, fn(acc, outcome) {
-    acc + case outcome {
-      Won -> 1
-      Pending | Lost -> 0
+fn count_recorded(races: List(Race)) -> Int {
+  list.fold(races, 0, fn(acc, race) {
+    acc + case race {
+      Timed(_) -> 1
+      NotRecorded -> 0
     }
   })
 }
