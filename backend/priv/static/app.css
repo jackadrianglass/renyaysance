@@ -490,6 +490,16 @@
     font-weight: var(--font-weight-6);
   }
 
+  @media (width < 640px) {
+    .potions {
+      grid-template-columns: 1fr auto auto;
+    }
+
+    .potion-name {
+      grid-column: 1 / -1;
+    }
+  }
+
   .potion-footer {
     display: flex;
     align-items: center;
@@ -550,11 +560,20 @@
     text-align: end;
   }
 
-  .attempt-zones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--size-1);
+  .attempt-select {
     flex: 1;
+    background-color: var(--color-bg-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2);
+    padding-block: var(--size-2);
+    padding-inline: var(--size-3);
+    cursor: pointer;
+  }
+
+  .attempt-select:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
   }
 
   .attempt-remove {

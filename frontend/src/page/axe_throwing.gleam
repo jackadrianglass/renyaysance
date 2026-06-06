@@ -135,12 +135,18 @@ fn view_row(zone: Zone, index: Int) -> Element(Msg) {
     html.span([attribute.class("attempt-num")], [
       html.text(int.to_string(index + 1)),
     ]),
-    html.div([attribute.class("attempt-zones")], [
-      view_zone_btn(index, zone, Missed, "Missed"),
-      view_zone_btn(index, zone, OuterRing, "Outer Ring"),
-      view_zone_btn(index, zone, InnerRing, "Inner Ring"),
-      view_zone_btn(index, zone, Bullseye, "Bullseye"),
-    ]),
+    html.select(
+      [
+        attribute.class("attempt-select"),
+        event.on_input(fn(val) { SetShot(index, zone_from_string(val)) }),
+      ],
+      [
+        view_option(zone, Missed, "Missed"),
+        view_option(zone, OuterRing, "Outer Ring"),
+        view_option(zone, InnerRing, "Inner Ring"),
+        view_option(zone, Bullseye, "Bullseye"),
+      ],
+    ),
     html.button(
       [attribute.class("attempt-remove"), event.on_click(RemoveShot(index))],
       [html.text("✕")],
@@ -148,20 +154,29 @@ fn view_row(zone: Zone, index: Int) -> Element(Msg) {
   ])
 }
 
-fn view_zone_btn(
-  index: Int,
-  current: Zone,
-  zone: Zone,
-  label: String,
-) -> Element(Msg) {
-  let cls = case current == zone {
-    True -> "attempt-btn selected"
-    False -> "attempt-btn"
-  }
-  html.button(
-    [attribute.class(cls), event.on_click(SetShot(index, zone))],
-    [html.text(label)],
+fn view_option(current: Zone, zone: Zone, label: String) -> Element(Msg) {
+  html.option(
+    [attribute.value(zone_to_string(zone)), attribute.selected(current == zone)],
+    label,
   )
+}
+
+fn zone_to_string(zone: Zone) -> String {
+  case zone {
+    Missed -> "missed"
+    OuterRing -> "outer_ring"
+    InnerRing -> "inner_ring"
+    Bullseye -> "bullseye"
+  }
+}
+
+fn zone_from_string(s: String) -> Zone {
+  case s {
+    "outer_ring" -> OuterRing
+    "inner_ring" -> InnerRing
+    "bullseye" -> Bullseye
+    _ -> Missed
+  }
 }
 
 fn compute_score(shots: List(Zone)) -> Int {
