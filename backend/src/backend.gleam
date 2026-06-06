@@ -13,6 +13,7 @@ import mist
 import scoring
 import scoring/jousting
 import scoring/potion
+import scoring/voting
 import store
 import wisp.{type Request, type Response}
 import wisp/wisp_mist
@@ -173,6 +174,7 @@ fn handle_login(s: store.Store, req: Request) -> Response {
 
 fn handle_get_users(s: store.Store) -> Response {
   store.all_users(s)
+  |> voting.filter_candidates
   |> json.array(json.string)
   |> json.to_string
   |> wisp.json_response(200)

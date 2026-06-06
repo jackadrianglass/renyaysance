@@ -8,6 +8,7 @@ import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/event
 import rsvp
 
 // todo: add a search feature for voting
@@ -83,13 +84,10 @@ pub fn view(model: Model) -> Element(Msg) {
       [] -> html.p([], [html.text("No other players yet.")])
       _ ->
         html.div(
-          [attribute.class("nav-grid")],
+          [attribute.class("hunt-items")],
           list.map(model.candidates, fn(candidate) {
-            layout.action_button(
-              on_click: UserVoted(candidate),
-              label: candidate,
-              selected: model.selected == option.Some(candidate),
-            )
+            let selected = model.selected == option.Some(candidate)
+            view_candidate(candidate, selected)
           }),
         )
     },
@@ -100,5 +98,23 @@ pub fn view(model: Model) -> Element(Msg) {
         ])
       option.None -> html.p([], [html.text("You haven't voted yet.")])
     },
+  ])
+}
+
+fn view_candidate(candidate: String, selected: Bool) -> Element(Msg) {
+  let row_cls = case selected {
+    True -> "hunt-item hunt-item--checked"
+    False -> "hunt-item"
+  }
+  html.div([attribute.class(row_cls)], [
+    html.label([attribute.class("hunt-checkbox")], [
+      html.input([
+        attribute.type_("checkbox"),
+        attribute.checked(selected),
+        event.on_click(UserVoted(candidate)),
+      ]),
+      html.span([attribute.class("hunt-checkbox-visual")], []),
+    ]),
+    html.span([attribute.class("hunt-item-text")], [html.text(candidate)]),
   ])
 }

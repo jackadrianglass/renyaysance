@@ -32,25 +32,23 @@ pub type Msg {
   AddShot
   SetShot(Int, Zone)
   RemoveShot(Int)
-  Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    AddShot -> #(
-      Model(shots: list.append(model.shots, [Missed]), saved: False),
-      effect.none(),
-    )
-    SetShot(index, zone) -> #(
-      Model(shots: set_at(model.shots, index, zone), saved: model.saved),
-      effect.none(),
-    )
-    RemoveShot(index) -> #(
-      Model(shots: remove_at(model.shots, index), saved: False),
-      effect.none(),
-    )
-    Submit -> #(model, do_submit(handle, model.shots))
+    AddShot -> {
+      let new_shots = list.append(model.shots, [Missed])
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
+    SetShot(index, zone) -> {
+      let new_shots = set_at(model.shots, index, zone)
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
+    RemoveShot(index) -> {
+      let new_shots = remove_at(model.shots, index)
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
     Saved(ok) -> #(Model(..model, saved: ok), effect.none())
   }
 }
@@ -121,8 +119,7 @@ pub fn view(model: Model) -> Element(Msg) {
     case model.saved {
       True ->
         html.p([attribute.class("saved-message")], [html.text("Score saved!")])
-      False ->
-        html.button([event.on_click(Submit)], [html.text("Save Score")])
+      False -> html.text("")
     },
   ])
 }

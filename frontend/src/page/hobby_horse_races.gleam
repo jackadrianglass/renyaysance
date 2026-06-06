@@ -30,31 +30,27 @@ pub type Msg {
   AddRace
   SetTime(Int, String)
   RemoveRace(Int)
-  Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    AddRace -> #(
-      Model(races: list.append(model.races, [NotRecorded]), saved: False),
-      effect.none(),
-    )
+    AddRace -> {
+      let new_races = list.append(model.races, [NotRecorded])
+      #(Model(races: new_races, saved: False), do_submit(handle, new_races))
+    }
     SetTime(index, val) -> {
       let race = case int.parse(val) {
         Ok(s) if s >= 0 -> Timed(s)
         _ -> NotRecorded
       }
-      #(
-        Model(races: set_at(model.races, index, race), saved: False),
-        effect.none(),
-      )
+      let new_races = set_at(model.races, index, race)
+      #(Model(races: new_races, saved: False), do_submit(handle, new_races))
     }
-    RemoveRace(index) -> #(
-      Model(races: remove_at(model.races, index), saved: False),
-      effect.none(),
-    )
-    Submit -> #(model, do_submit(handle, model.races))
+    RemoveRace(index) -> {
+      let new_races = remove_at(model.races, index)
+      #(Model(races: new_races, saved: False), do_submit(handle, new_races))
+    }
     Saved(ok) -> #(Model(..model, saved: ok), effect.none())
   }
 }
@@ -129,8 +125,7 @@ pub fn view(model: Model) -> Element(Msg) {
     case model.saved {
       True ->
         html.p([attribute.class("saved-message")], [html.text("Score saved!")])
-      False ->
-        html.button([event.on_click(Submit)], [html.text("Save Score")])
+      False -> html.text("")
     },
   ])
 }

@@ -38,25 +38,21 @@ pub fn init() -> Model {
 
 pub type Msg {
   Toggle(Int)
-  Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    Toggle(index) -> #(
-      Model(
-        checked: list.index_map(model.checked, fn(c, i) {
+    Toggle(index) -> {
+      let new_checked =
+        list.index_map(model.checked, fn(c, i) {
           case i == index {
             True -> !c
             False -> c
           }
-        }),
-        saved: False,
-      ),
-      effect.none(),
-    )
-    Submit -> #(model, do_submit(handle, model.checked))
+        })
+      #(Model(checked: new_checked, saved: False), do_submit(handle, new_checked))
+    }
     Saved(ok) -> #(Model(..model, saved: ok), effect.none())
   }
 }
@@ -124,8 +120,7 @@ pub fn view(model: Model) -> Element(Msg) {
         html.p([attribute.class("saved-message")], [
           html.text("Progress saved!"),
         ])
-      False ->
-        html.button([event.on_click(Submit)], [html.text("Save Progress")])
+      False -> html.text("")
     },
     html.div([attribute.class("hunt-upload")], [
       html.p([], [html.text("Upload your photos to the shared drive:")]),

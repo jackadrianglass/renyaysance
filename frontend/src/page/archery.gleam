@@ -30,19 +30,18 @@ pub type Msg {
   AddShot
   ToggleCup(Int, Int)
   RemoveShot(Int)
-  Submit
   Saved(Bool)
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
   case msg {
-    AddShot -> #(
-      Model(shots: list.append(model.shots, [empty_shot()]), saved: False),
-      effect.none(),
-    )
-    ToggleCup(shot_idx, cup_idx) -> #(
-      Model(
-        shots: list.index_map(model.shots, fn(shot, i) {
+    AddShot -> {
+      let new_shots = list.append(model.shots, [empty_shot()])
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
+    ToggleCup(shot_idx, cup_idx) -> {
+      let new_shots =
+        list.index_map(model.shots, fn(shot, i) {
           case i == shot_idx {
             False -> shot
             True ->
@@ -53,22 +52,17 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
                 }
               })
           }
-        }),
-        saved: model.saved,
-      ),
-      effect.none(),
-    )
-    RemoveShot(index) -> #(
-      Model(
-        shots: list.flatten([
+        })
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
+    RemoveShot(index) -> {
+      let new_shots =
+        list.flatten([
           list.take(model.shots, index),
           list.drop(model.shots, index + 1),
-        ]),
-        saved: False,
-      ),
-      effect.none(),
-    )
-    Submit -> #(model, do_submit(handle, model.shots))
+        ])
+      #(Model(shots: new_shots, saved: False), do_submit(handle, new_shots))
+    }
     Saved(ok) -> #(Model(..model, saved: ok), effect.none())
   }
 }
@@ -137,8 +131,7 @@ pub fn view(model: Model) -> Element(Msg) {
     case model.saved {
       True ->
         html.p([attribute.class("saved-message")], [html.text("Score saved!")])
-      False ->
-        html.button([event.on_click(Submit)], [html.text("Save Score")])
+      False -> html.text("")
     },
   ])
 }

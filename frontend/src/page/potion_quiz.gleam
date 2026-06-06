@@ -32,8 +32,6 @@ pub type Msg {
   SetAnswer(Int, String)
   CheckAnswer(Int)
   GotResult(Int, Result(List(Option(Bool)), rsvp.Error(String)))
-  Submit
-  GotResults(Result(List(Option(Bool)), rsvp.Error(String)))
 }
 
 pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
@@ -76,12 +74,6 @@ pub fn update(model: Model, msg: Msg, handle: String) -> #(Model, Effect(Msg)) {
       )
     }
     GotResult(_, Error(_)) -> #(model, effect.none())
-    Submit -> #(model, do_submit(handle, model.answers))
-    GotResults(Ok(results)) -> #(
-      Model(..model, results: results),
-      effect.none(),
-    )
-    GotResults(Error(_)) -> #(model, effect.none())
   }
 }
 
@@ -95,19 +87,6 @@ fn do_check_single(handle: String, index: Int, answer: String) -> Effect(Msg) {
     "/api/events/potion/check",
     body,
     rsvp.expect_json(results_decoder(), GotResult(index, _)),
-  )
-}
-
-fn do_submit(handle: String, answers: List(String)) -> Effect(Msg) {
-  let body =
-    json.object([
-      #("handle", json.string(handle)),
-      #("answers", json.array(answers, json.string)),
-    ])
-  rsvp.post(
-    "/api/events/potion/check",
-    body,
-    rsvp.expect_json(results_decoder(), GotResults),
   )
 }
 
@@ -149,7 +128,6 @@ pub fn view(model: Model) -> Element(Msg) {
             ),
           ])
       },
-      html.button([event.on_click(Submit)], [html.text("Submit Answers")]),
     ]),
   ])
 }
