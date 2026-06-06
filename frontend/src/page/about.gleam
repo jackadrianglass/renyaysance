@@ -15,7 +15,7 @@ pub fn view() -> Element(msg) {
         "Send donations to maisonlaird@gmail.com. Funds will be used to pay for the supplies of the event and all the extras will be sent to ",
       ),
       html.a([attribute.href("https://www.huggabowl.com/")], [
-        html.text("Huggabol"),
+        html.text("Huggabowl"),
       ]),
     ]),
     html.h2([], [html.text("Market")]),
@@ -24,7 +24,7 @@ pub fn view() -> Element(msg) {
     ]),
     html.h2([], [html.text("Potluck & Food")]),
     html.p([], [
-      html.text("Bring a small item of food if you want to participate in the potluck. The food will be available the whole event. A food truck will be there as well."),
+      html.text("Bring a small item of food if you want to participate in the potluck. The food will be available the whole event."),
     ]),
     html.h2([], [html.text("Performance Lineup")]),
     html.div([attribute.class("lineup-table-wrap")], [
@@ -88,7 +88,7 @@ pub fn view() -> Element(msg) {
           ]),
           html.tr([], [
             html.td([attribute.class("lineup-time")], [html.text("4:45 PM")]),
-            html.td([], [html.text("Arrol")]),
+            html.td([], [html.text("Arrol & Coco")]),
             html.td([attribute.class("lineup-empty")], []),
             html.td([attribute.class("lineup-empty")], []),
           ]),
@@ -176,7 +176,7 @@ pub fn view() -> Element(msg) {
           ]),
           html.tr([], [
             html.td([attribute.class("lineup-time")], [html.text("8:45 PM")]),
-            html.td([], [html.text("Arrol")]),
+            html.td([], [html.text("Arrol & Coco")]),
             html.td([attribute.class("lineup-empty")], []),
             html.td([attribute.class("lineup-empty")], []),
           ]),
